@@ -7,7 +7,15 @@
 ## 原生 macOS App (推荐, v1.1.0+)
 SwiftUI 原生应用 (`macos/`), Universal (Apple Silicon + Intel), 约 1.2MB, macOS 14+。
 到 [Releases](https://github.com/ZenoRewn/Azure_CasePilot/releases) 下载 `CasePilot-*-macOS-universal.zip`, 解压双击即可。
-关闭窗口或 ⌘Q 即完全退出, 无后台服务。支持 Azure CLI 与浏览器 (设备码) 登录。
+关闭窗口或 ⌘Q 即完全退出, 无后台服务。
+
+### 首次打开 (必做一次)
+App 未经 Apple 公证, 下载后 macOS 会提示"已损坏"或"无法验证开发者"。解压后在终端执行:
+```bash
+xattr -dr com.apple.quarantine ~/Downloads/CasePilot.app   # 按实际路径修改
+```
+之后双击即可正常打开。
+支持 Azure CLI 与浏览器 (设备码) 登录。
 构建: `cd macos && ./build_app.sh v1.1.0`; 测试: `swift test`。
 
 ## Web 版 (跨平台, 下载即用 macOS Apple Silicon)
