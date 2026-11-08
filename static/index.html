@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="casepilot-token" content="__SESSION_TOKEN__">
+<title>Azure CasePilot</title>
+<link rel="icon" href="/logo.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<!-- 图标: Remix Icon 路径 -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-lifebuoy" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c5.52 0 10 4.48 10 10s-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2Zm0 15c-.85 0-1.65-.21-2.35-.59l-2.2 2.2A7.96 7.96 0 0 0 12 20c1.7 0 3.27-.53 4.56-1.43l-2.2-2.2c-.7.4-1.51.63-2.36.63Zm-8-5c0 1.7.53 3.27 1.43 4.56l2.2-2.2A4.98 4.98 0 0 1 7 12c0-.85.21-1.65.59-2.35l-2.2-2.2A7.96 7.96 0 0 0 4 12Zm14.57-4.56-2.2 2.2c.4.7.63 1.51.63 2.36 0 .85-.21 1.65-.59 2.35l2.2 2.2A7.96 7.96 0 0 0 20 12c0-1.7-.53-3.27-1.43-4.56ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0-5c-1.7 0-3.27.53-4.56 1.43l2.2 2.2A4.98 4.98 0 0 1 12 7c.85 0 1.65.21 2.35.59l2.2-2.2A7.96 7.96 0 0 0 12 4Z"/></symbol>
+  <symbol id="i-add" viewBox="0 0 24 24"><path fill="currentColor" d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6Z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path fill="currentColor" d="M8 4h13v2H8V4ZM4.5 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6.9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM8 11h13v2H8v-2Zm0 7h13v2H8v-2Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path fill="currentColor" d="m18.03 16.62 4.28 4.28-1.41 1.41-4.28-4.28A9 9 0 0 1 2 11a9 9 0 0 1 18 0 8.96 8.96 0 0 1-1.97 5.62ZM16.02 15.87A7 7 0 0 0 11 4a7 7 0 1 0 4.87 12.02l.15-.15Z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm1 2v14h16V5H4Zm8 10h6v2h-6v-2Zm-3.33-3L5.84 9.17l1.42-1.42L11.5 12l-4.24 4.24-1.42-1.41L8.67 12Z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path fill="currentColor" d="M10.76 11.83 20.59 2l1.41 1.41-1.41 1.42 2.47 2.47-1.42 1.41-2.47-2.47-1.41 1.42 2.12 2.12-1.41 1.41-2.12-2.12-4.2 4.2a5 5 0 1 1-1.41-1.42ZM10.41 18.4a3 3 0 1 0-4.24-4.24 3 3 0 0 0 4.24 4.24Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="m10 15.17 9.19-9.19 1.42 1.41L10 18 3.64 11.64l1.41-1.41L10 15.17Z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path fill="currentColor" d="m12 10.59 4.95-4.95 1.41 1.41L13.41 12l4.95 4.95-1.41 1.41L12 13.41l-4.95 4.95-1.41-1.41L10.59 12 5.64 7.05l1.41-1.41L12 10.59Z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path fill="currentColor" d="M5.46 5.32A9.95 9.95 0 0 1 12 2.9c5.52 0 10 4.48 10 10a9.93 9.93 0 0 1-1.84 5.77L17 13h3a8 8 0 0 0-13.11-6.15l-.97-1.53ZM18.54 20.48A9.95 9.95 0 0 1 12 22.9c-5.52 0-10-4.48-10-10 0-2.14.67-4.13 1.84-5.77L7 12.9H4a8 8 0 0 0 13.11 6.15l.97 1.53Z"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path fill="currentColor" d="M5 22a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3h-2V4H6v16h12v-2h2v3a1 1 0 0 1-1 1H5Zm13-6v-3h-7v-2h7V8l5 4-5 4Z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><path fill="currentColor" d="M12 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10Zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM11 7h2v2h-2V7Zm0 4h2v6h-2v-6Z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path fill="currentColor" d="m12.87 3 9.53 16.5a1 1 0 0 1-.87 1.5H2.47a1 1 0 0 1-.87-1.5L11.13 3a1 1 0 0 1 1.74 0ZM4.2 19h15.6L12 5.5 4.2 19Zm6.8-3h2v2h-2v-2Zm0-7h2v5h-2V9Z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path fill="currentColor" d="m23 12-7.07 7.07-1.42-1.42L20.17 12l-5.66-5.66 1.42-1.41L23 12ZM3.83 12l5.66 5.66-1.42 1.41L1 12l7.07-7.07 1.42 1.42L3.83 12Z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path fill="currentColor" d="M1.95 9.32c-.52-.17-.53-.45.01-.63L21.04 2.33c.53-.18.83.12.68.64l-5.45 19.08c-.15.53-.46.55-.68.05L12 13.5l6-8-8 6-8.05-2.18Z"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path fill="currentColor" d="M10 6v2H5v11h11v-5h2v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6Zm11-3v8h-2V6.41l-7.79 7.8-1.42-1.42L17.59 5H13V3h8Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .55-.45 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3Zm2 0h7a1 1 0 0 1 1 1v9h2V4H9v2ZM5 8v12h10V8H5Z"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path fill="currentColor" d="M3 10h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Zm6 2v2h6v-2H9ZM2 4a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v4H2V4Z"/></symbol>
+</svg>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <img class="brand-logo" src="/logo.png" alt="">
+      <div><div class="t-headline">CasePilot</div><div class="t-caption tertiary">Azure Support · 本地</div></div>
+    </div>
+    <div class="nav-label t-caption-semibold tertiary">工作台</div>
+    <button class="nav-item active" data-view="create"><svg class="i"><use href="#i-add"/></svg>新建 Case</button>
+    <button class="nav-item" data-view="history"><svg class="i"><use href="#i-list"/></svg>我的 Case<span id="nav-open" class="badge accent hidden"></span></button>
+    <div class="side-foot">
+      <div id="identity" class="identity hidden">
+        <div class="avatar" id="avatar">?</div>
+        <div class="who"><div class="t-body-2" id="who-name" style="font-weight:600"></div><div class="t-caption tertiary" id="who-meta"></div></div>
+        <button id="btn-logout" class="btn ghost sm icon" title="切换身份"><svg class="i"><use href="#i-logout"/></svg></button>
+      </div>
+      <div class="t-caption tertiary" style="padding:0 10px;display:flex;align-items:center;justify-content:space-between">仅运行于 127.0.0.1
+        <button id="btn-quit" class="btn ghost sm" style="height:24px">退出</button></div>
+    </div>
+  </aside>
+
+  <div class="content">
+    <div id="topbar" class="topbar hidden">
+      <div class="scope">
+        <label class="field"><span class="lbl">租户</span><select id="tenant" class="control"></select></label>
+        <label class="field"><span class="lbl">订阅</span><select id="subscription" class="control"></select></label>
+      </div>
+    </div>
+
+    <!-- 认证 -->
+    <section id="view-auth" class="page">
+      <div class="auth-wrap">
+        <div class="card auth-card">
+          <img class="hero-logo" src="/logo.png" alt="CasePilot">
+          <h1 class="t-title-1">连接到 Azure</h1>
+          <p class="secondary" style="margin:6px 0 22px">选择认证方式。凭据仅保存在本机进程内存中。</p>
+          <div class="seg block" style="margin-bottom:18px">
+            <button class="active" data-auth="cli">Azure CLI</button>
+            <button data-auth="device">浏览器登录</button>
+            <button data-auth="sp">App Registration</button>
+          </div>
+          <div id="auth-cli" class="stack">
+            <div class="callout"><svg class="i"><use href="#i-terminal"/></svg><span>复用本机 <b>az login</b> 会话, 可切换到 CLI 已登录过的任意租户。页面打开时会自动尝试。</span></div>
+            <button id="btn-cli" class="btn primary lg block mt">使用 Azure CLI 继续</button>
+          </div>
+          <div id="auth-device" class="stack hidden">
+            <div class="callout"><svg class="i"><use href="#i-external"/></svg><span>无需安装 Azure CLI。获取验证码后在浏览器中用工作账号登录, 支持 MFA。</span></div>
+            <label class="field"><span class="lbl">云环境</span><select id="dv-cloud" class="control">
+              <option value="AzureCloud">Azure Global</option><option value="AzureChinaCloud">Azure China (世纪互联)</option><option value="AzureUSGovernment">Azure US Government</option></select></label>
+            <div id="dv-code" class="hidden" style="text-align:center;padding:16px;border-radius:16px;background:var(--background-secondary-default)">
+              <div class="t-caption tertiary">在打开的页面中输入验证码</div>
+              <div id="dv-usercode" class="mono" style="font-size:28px;line-height:40px;font-weight:600;letter-spacing:.12em;margin:6px 0"></div>
+              <a id="dv-link" target="_blank" rel="noopener" class="t-caption"></a>
+            </div>
+            <button id="btn-device" class="btn primary lg block">获取验证码并登录</button>
+          </div>
+          <div id="auth-sp" class="grid hidden">
+            <label class="field"><span class="lbl">云环境</span><select id="sp-cloud" class="control">
+              <option value="AzureCloud">Azure Global</option><option value="AzureChinaCloud">Azure China (世纪互联)</option><option value="AzureUSGovernment">Azure US Government</option></select></label>
+            <label class="field"><span class="lbl">Tenant ID</span><input id="sp-tenant" class="control mono" placeholder="00000000-0000-0000-0000-000000000000"></label>
+            <label class="field"><span class="lbl">Client ID</span><input id="sp-client" class="control mono" placeholder="Application (client) ID"></label>
+            <label class="field"><span class="lbl">Client Secret</span><input id="sp-secret" class="control" type="password" autocomplete="off"></label>
+            <div class="help">Service Principal 需在目标订阅具备 <b>Support Request Contributor</b> 角色。</div>
+            <button id="btn-sp" class="btn primary lg block"><svg class="i"><use href="#i-key"/></svg>使用 App Registration 登录</button>
+          </div>
+          <div id="auth-msg" class="hidden mt"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 新建 -->
+    <section id="view-create" class="page hidden">
+      <div class="page-head">
+        <div><h1 class="t-title-1">新建 Support Case</h1><p class="secondary">描述越具体, 首次响应越快。</p></div>
+        <div class="seg" id="kind">
+          <button class="active" data-kind="technical">技术问题</button>
+          <button data-kind="quota">配额申请</button>
+          <button data-kind="billing">计费 / 订阅</button>
+        </div>
+      </div>
+      <div class="compose">
+        <div class="stack-16">
+          <div class="card card-pad">
+            <div class="card-head"><span class="step" data-step="1">1</span><h2 class="t-headline">问题类别</h2><span id="kind-hint" class="sub t-caption tertiary"></span></div>
+            <div class="grid">
+              <div class="field">
+                <span class="lbl">服务</span>
+                <div class="combo">
+                  <svg class="i"><use href="#i-search"/></svg>
+                  <input id="svc-filter" class="control" placeholder="搜索服务: OpenAI / Virtual Machine / Kubernetes …" autocomplete="off">
+                  <ul id="svc-list" class="popover hidden"></ul>
+                </div>
+                <div id="svc-chips" class="chips"></div>
+              </div>
+              <div class="grid g2">
+                <label class="field"><span class="lbl">问题类型</span><select id="problem" class="control" disabled><option value="">先选择服务</option></select></label>
+                <label class="field" id="res-field"><span class="lbl">相关资源 <span class="opt">可选</span></span><select id="resource" class="control"><option value="">— 不指定 —</option></select></label>
+              </div>
+              <div class="field" id="pick-res-field">
+                <span class="help">不确定选哪个服务? <button type="button" id="btn-by-res" class="btn ghost sm" style="height:24px;padding:0 6px;color:var(--accent-600)"><svg class="i"><use href="#i-box"/></svg>从订阅资源中选择</button></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-pad hidden" id="quota-card">
+            <div class="card-head"><span class="step" data-step="q">Q</span><h2 class="t-headline">配额明细</h2><span class="sub t-caption tertiary">Compute vCPU (按 VM 系列)</span></div>
+            <div class="grid g3">
+              <label class="field"><span class="lbl">区域</span><input id="q-region" class="control" placeholder="eastus / southeastasia"></label>
+              <label class="field"><span class="lbl">VM 系列</span><input id="q-sku" class="control" placeholder="DSv5 Series / ESv3 Series"></label>
+              <label class="field"><span class="lbl">新上限 (vCPU)</span><input id="q-limit" class="control" type="number" min="1" placeholder="200"></label>
+            </div>
+            <div class="help mt">其他服务的配额 (如 Azure OpenAI TPM) 请在描述中写明 区域 / 模型 / 部署类型 / 目标值, 或使用 Portal 的配额页面。</div>
+          </div>
+
+          <div class="card card-pad">
+            <div class="card-head"><span class="step" data-step="2">2</span><h2 class="t-headline">问题描述</h2></div>
+            <div class="grid">
+              <label class="field"><span class="lbl">标题 <span class="right" id="title-count">0 / 200</span></span>
+                <input id="title" class="control" maxlength="200" placeholder="例: East US gpt-4o 部署持续返回 429, 配额未用满"></label>
+              <div class="field">
+                <span class="lbl">详细描述 <span class="right"><button type="button" id="btn-template" class="btn ghost sm" style="height:22px;padding:0 6px;color:var(--accent-600)">插入结构化模板</button></span></span>
+                <textarea id="description" class="control" rows="10" placeholder="现象、业务影响、首次发生时间 (含时区)、错误信息 / Request ID、已做的排查…"></textarea>
+                <span class="help">附上 Request ID / Correlation ID / x-ms-request-id 与精确时间, 可显著缩短排查时间。</span>
+              </div>
+              <div class="grid g2">
+                <label class="field"><span class="lbl">问题开始时间 <span class="opt">可选</span></span><input id="start" class="control" type="datetime-local"></label>
+                <div class="field" style="justify-content:flex-end;padding-bottom:10px">
+                  <label class="check"><input id="consent" type="checkbox" checked>允许 Microsoft 收集高级诊断信息</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-pad">
+            <div class="card-head"><span class="step" data-step="3">3</span><h2 class="t-headline">影响程度</h2><span id="plan-hint" class="sub"></span></div>
+            <div class="sev" id="sev">
+              <label class="sev-opt"><input type="radio" name="sev" value="minimal"><span class="lv">C</span><span class="nm">最小影响</span><span class="ds">功能受损但不影响业务</span><span class="rq">工作时间响应</span></label>
+              <label class="sev-opt"><input type="radio" name="sev" value="moderate" checked><span class="lv">B</span><span class="nm">中等影响</span><span class="ds">生产受影响, 有变通方案</span><span class="rq">工作时间响应</span></label>
+              <label class="sev-opt"><input type="radio" name="sev" value="critical"><span class="lv">A</span><span class="nm">严重影响</span><span class="ds">生产中断或严重降级</span><span class="rq">需 Standard 及以上</span></label>
+              <label class="sev-opt"><input type="radio" name="sev" value="highestcriticalimpact"><span class="lv">A+</span><span class="nm">业务关键</span><span class="ds">关键业务全面中断</span><span class="rq">需 ProDirect / Unified</span></label>
+            </div>
+            <label class="check mt"><input id="h24" type="checkbox" disabled>需要 24×7 响应 (仅 A / A+ 可选)</label>
+          </div>
+
+          <div class="card card-pad">
+            <div class="card-head"><span class="step" data-step="4">4</span><h2 class="t-headline">联系方式</h2><span class="sub t-caption tertiary">仅保存在此浏览器</span></div>
+            <div class="grid g3">
+              <label class="field"><span class="lbl">姓</span><input id="c-last" class="control" autocomplete="family-name"></label>
+              <label class="field"><span class="lbl">名</span><input id="c-first" class="control" autocomplete="given-name"></label>
+              <label class="field"><span class="lbl">邮箱</span><input id="c-email" class="control" type="email" autocomplete="email"></label>
+              <label class="field"><span class="lbl">首选联系方式</span><select id="c-method" class="control"><option value="email">邮件</option><option value="phone">电话</option></select></label>
+              <label class="field"><span class="lbl">电话 <span class="opt" id="phone-opt">可选</span></span><input id="c-phone" class="control" autocomplete="tel" placeholder="+86 …"></label>
+              <label class="field"><span class="lbl">抄送 <span class="opt">逗号分隔</span></span><input id="c-cc" class="control"></label>
+              <label class="field"><span class="lbl">支持语言</span><select id="c-lang" class="control">
+                <option value="zh-hans">简体中文</option><option value="en-us">English</option><option value="zh-hant">繁體中文</option>
+                <option value="ja-jp">日本語</option><option value="ko-kr">한국어</option></select></label>
+              <label class="field"><span class="lbl">国家 / 地区</span><select id="c-country" class="control"></select></label>
+              <label class="field"><span class="lbl">时区</span><select id="c-tz" class="control"></select></label>
+            </div>
+          </div>
+        </div>
+
+        <aside class="aside">
+          <div class="card card-pad">
+            <div class="card-head" style="margin-bottom:0"><h3 class="t-headline">提交前检查</h3><span id="progress-text" class="sub t-caption tertiary"></span></div>
+            <div class="progress"><i id="progress"></i></div>
+            <ul id="checklist" class="checklist"></ul>
+            <dl id="summary" class="kv"></dl>
+            <div class="stack">
+              <button id="btn-create" class="btn primary lg block" disabled>创建 Support Case</button>
+              <button id="btn-preview" class="btn block"><svg class="i"><use href="#i-code"/></svg>预览请求体</button>
+            </div>
+            <div id="create-msg" class="hidden mt"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 历史 -->
+    <section id="view-history" class="page hidden">
+      <div class="page-head">
+        <div><h1 class="t-title-1">我的 Case</h1><p class="secondary" id="h-scope"></p></div>
+        <button id="btn-refresh" class="btn"><svg class="i"><use href="#i-refresh"/></svg>刷新</button>
+      </div>
+      <div class="stats">
+        <div class="card stat"><div class="t-caption tertiary">全部</div><div class="v" id="st-all">–</div></div>
+        <div class="card stat"><div class="t-caption tertiary">处理中</div><div class="v" id="st-open">–</div></div>
+        <div class="card stat"><div class="t-caption tertiary">已关闭</div><div class="v" id="st-closed">–</div></div>
+        <div class="card stat"><div class="t-caption tertiary">A / A+ 级</div><div class="v" id="st-crit">–</div></div>
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <div class="combo"><svg class="i"><use href="#i-search"/></svg><input id="h-search" class="control" placeholder="搜索 Case 号 / 标题 / 服务"></div>
+          <div class="seg" id="h-status"><button class="active" data-st="">全部</button><button data-st="Open">处理中</button><button data-st="Closed">已关闭</button></div>
+          <select id="h-days" class="control"><option value="7">近 7 天</option><option value="30" selected>近 30 天</option><option value="90">近 90 天</option><option value="365">近 1 年</option></select>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl"><thead><tr><th>Case</th><th>标题</th><th>严重性</th><th>状态</th><th>创建时间</th></tr></thead><tbody id="h-body"></tbody></table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="mask" class="mask hidden"></div>
+<aside id="drawer" class="drawer hidden" role="dialog" aria-modal="true" aria-labelledby="d-title">
+  <div class="drawer-head">
+    <div class="row">
+      <span class="mono tertiary" id="d-id"></span>
+      <button id="d-copy" class="btn ghost sm icon" title="复制 Case 号"><svg class="i"><use href="#i-copy"/></svg></button>
+      <span id="d-status"></span><span id="d-sev"></span>
+      <div class="actions">
+        <a id="d-portal" class="btn sm" target="_blank" rel="noopener"><svg class="i"><use href="#i-external"/></svg>Portal</a>
+        <button id="d-close-case" class="btn sm danger">关闭 Case</button>
+        <button id="d-x" class="btn ghost sm icon" title="关闭面板 (Esc)"><svg class="i"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <h2 class="t-title-3" id="d-title"></h2>
+    <div class="tabs" id="d-tabs">
+      <button class="active" data-tab="overview">概览</button>
+      <button data-tab="comms">沟通记录<span id="d-ccount" class="badge"></span></button>
+    </div>
+  </div>
+  <div class="drawer-body">
+    <div id="d-overview">
+      <dl id="d-props" class="props"></dl>
+      <div class="section-title">问题描述</div>
+      <pre id="d-desc" class="desc"></pre>
+    </div>
+    <div id="d-comms-pane" class="hidden"><ol id="d-comms" class="timeline"></ol></div>
+  </div>
+  <div class="drawer-foot" id="d-foot">
+    <div class="composer">
+      <textarea id="d-reply" rows="3" placeholder="补充信息给支持工程师, 将以邮件形式发送…"></textarea>
+      <div class="bar"><span class="t-caption tertiary">⌘ / Ctrl + Enter 发送</span>
+        <button id="d-send" class="btn primary sm"><svg class="i"><use href="#i-send"/></svg>发送</button></div>
+    </div>
+    <div id="d-msg" class="hidden mt"></div>
+  </div>
+</aside>
+<div id="modal-root"></div>
+<div id="toast" class="toast hidden"><svg class="i"><use href="#i-check"/></svg><span></span></div>
+<script src="/js/core.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/create.js"></script>
+<script src="/js/history.js"></script>
+<script src="/js/detail.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

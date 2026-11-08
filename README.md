@@ -1,0 +1,47 @@
+# Azure CasePilot
+
+<img src="static/logo.png" width="96" alt="CasePilot logo">
+
+本地一键创建 Azure Support Case 的 Web 工具。零第三方依赖 (Python 3.9+ 标准库), 直接调用 ARM `Microsoft.Support` REST API (2024-04-01)。
+
+## 下载即用 (macOS, Apple Silicon)
+到 [Releases](https://github.com/ZenoRewn/Azure_CasePilot/releases) 下载 `CasePilot-*-macOS-arm64.zip`, 解压后双击 `CasePilot.app`。
+App 未签名, 首次打开如被拦截: 右键 → 打开, 或执行 `xattr -dr com.apple.quarantine CasePilot.app`。
+
+## 从源码启动 (前提: Python 3.9+, 推荐已安装并 `az login` 的 Azure CLI)
+- macOS: 双击 `start.command` (或终端 `./start.sh`)
+- Windows: 双击 `start.bat`
+
+无需 pip install。
+自动打开 http://127.0.0.1:8765 。端口可通过 `CASEPILOT_PORT` 修改。
+
+## 认证
+| 方式 | 前提 | 说明 |
+|---|---|---|
+| Azure CLI (默认, 页面打开自动尝试) | 已 `az login` | 支持切换到 CLI 已登录过的任意租户; 若提示失败执行 `az login --tenant <id>` |
+| 浏览器登录 (设备码) | 无需安装 CLI | 在浏览器中用工作账号登录, 支持 MFA |
+| App Registration | Client ID + Secret | SP 需在目标订阅具备 **Support Request Contributor** 角色; Secret 仅存进程内存 |
+
+支持 Azure Global / China (21V) / US Gov (CLI 模式按 `az cloud` 当前环境自动识别)。
+
+## 功能
+- **新建 Case**: 技术问题 / 配额申请 (Compute vCPU 结构化表单) / 计费订阅 三类入口; 服务搜索 + 常用服务快捷选择 + 从订阅资源反查服务; 结构化描述模板; 提交前检查清单; 请求体预览。
+- **默认中文 / 中国**: 支持语言 zh-hans、国家 CHN、时区 China Standard Time, 可修改并本地记忆。
+- **我的 Case**: 统计、搜索、按状态/时间筛选; 详情抽屉含属性、SLA、沟通记录时间线; 发送补充信息; **关闭 Case**。
+- **支持计划提示**: 根据该订阅最近 Case 的 supportPlanType 推断, 选择 A/A+ 时提示可能不支持。
+
+## 注意
+- 严重性 A 需要 Standard 及以上支持计划; "业务关键"需 ProDirect / Unified。无付费支持计划的订阅只能创建计费/订阅管理/配额类 Case。
+- 仅监听 127.0.0.1, API 需每次启动随机生成的会话令牌并校验 Host 头 (防 CSRF / DNS rebinding)。
+- python.org 版 macOS Python 若无 CA 证书: 安装 `certifi` 或运行 `Install Certificates.command`; 程序也会回退读取系统根证书。
+
+## 测试
+```bash
+python3 -m unittest discover -s tests
+```
+
+## 构建 macOS App
+```bash
+python3 -m pip install pyinstaller certifi
+./build_mac.sh v1.0.0      # 产物: dist/CasePilot-v1.0.0-macOS-<arch>.zip
+```
