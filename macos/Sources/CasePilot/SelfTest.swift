@@ -48,6 +48,8 @@ enum SelfTest {
             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name + ".png"))
         }
         try? await Task.sleep(for: .seconds(14))
+        NSApp.windows.first?.setContentSize(NSSize(width: 1280, height: 820))
+        try? await Task.sleep(for: .seconds(1))
         grab("create")
         NotificationCenter.default.post(name: .showHistory, object: nil)
         try? await Task.sleep(for: .seconds(4))

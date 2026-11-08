@@ -16,40 +16,21 @@ struct HistoryView: View {
 
     var body: some View {
         @Bindable var store = store
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("我的 Case").font(.title.weight(.semibold))
-                    Text(store.sub == nil ? "租户级 Case" : "订阅 · \(store.subscriptions.first { $0.id == store.subscriptionId }?.name ?? "")")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button { Task { await store.loadTickets() } } label: { Label("刷新", systemImage: "arrow.clockwise") }
-                    .disabled(store.loadingTickets)
-            }
-            HStack(spacing: 12) {
-                Stat(title: "全部", value: store.tickets.count)
-                Stat(title: "处理中", value: store.tickets.filter(\.isOpen).count, tint: .green)
-                Stat(title: "已关闭", value: store.tickets.filter { $0.status == "Closed" }.count)
-                Stat(title: "A / A+ 级", value: store.tickets.filter { Severity(api: $0.severity)?.isHigh ?? false }.count, tint: .red)
-            }
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                TextField("搜索 Case 号 / 标题 / 服务", text: $query).textFieldStyle(.roundedBorder).frame(minWidth: 160)
-                Picker("", selection: $status) { Text("全部").tag(""); Text("处理中").tag("Open"); Text("已关闭").tag("Closed") }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
-                Picker("", selection: $store.historyDays) {
-                    Text("近 7 天").tag(7); Text("近 30 天").tag(30); Text("近 90 天").tag(90); Text("近 1 年").tag(365)
-                }.labelsHidden().frame(width: 110)
-                .onChange(of: store.historyDays) { _, _ in Task { await store.loadTickets() } }
+                Stat(title: "全部", value: store.tickets.count, symbol: "tray.full")
+                Stat(title: "处理中", value: store.tickets.filter(\.isOpen).count, symbol: "clock", tint: .green)
+                Stat(title: "已关闭", value: store.tickets.filter { $0.status == "Closed" }.count, symbol: "checkmark.circle")
+                Stat(title: "A / A+ 级", value: store.tickets.filter { Severity(api: $0.severity)?.isHigh ?? false }.count, symbol: "exclamationmark.triangle", tint: .red)
             }
             Table(rows, selection: $selection, sortOrder: $sort) {
-                TableColumn("Case", value: \.ticketNumber) { t in Text(t.ticketNumber).font(.callout.monospaced()) }.width(min: 120, ideal: 140)
+                TableColumn("Case", value: \.ticketNumber) { t in Text(t.ticketNumber).font(.callout.monospaced()) }.width(min: 110, ideal: 130)
                 TableColumn("标题", value: \.title) { t in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(t.title).fontWeight(.medium).lineLimit(1)
                         Text([t.service, t.problem].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }.padding(.vertical, 4)
-                }
+                }.width(min: 180, ideal: 320)
                 TableColumn("严重性", value: \.severity) { t in severityBadge(t.severity) }.width(min: 80, ideal: 96)
                 TableColumn("状态", value: \.status) { t in statusBadge(t.status) }.width(min: 70, ideal: 84)
                 TableColumn("创建时间", value: \.sortDate) { t in Text(t.created?.relative ?? "").foregroundStyle(.secondary).help(t.created?.full ?? "") }.width(min: 70, ideal: 96)
@@ -58,16 +39,28 @@ struct HistoryView: View {
                 if store.loadingTickets && store.tickets.isEmpty { ProgressView() }
                 else if rows.isEmpty { ContentUnavailableView("该范围内没有 Case", systemImage: "tray") }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.separator))
+            .tableStyle(.inset(alternatesRowBackgrounds: true))
         }
-        .padding(24)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(16)
         .navigationTitle("我的 Case")
+        .navigationSubtitle(store.sub == nil ? "租户级" : store.subscriptions.first { $0.id == store.subscriptionId }?.name ?? "")
+        .searchable(text: $query, placement: .toolbar, prompt: "Case 号 / 标题 / 服务")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Picker("状态", selection: $status) { Text("全部").tag(""); Text("处理中").tag("Open"); Text("已关闭").tag("Closed") }
+                    .pickerStyle(.segmented).fixedSize()
+                Picker("时间", selection: $store.historyDays) {
+                    Text("近 7 天").tag(7); Text("近 30 天").tag(30); Text("近 90 天").tag(90); Text("近 1 年").tag(365)
+                }.fixedSize()
+                .onChange(of: store.historyDays) { _, _ in Task { await store.loadTickets() } }
+                Button("刷新", systemImage: "arrow.clockwise") { Task { await store.loadTickets() } }
+                    .disabled(store.loadingTickets).help("刷新 (⌘R)")
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .selectFirstTicket)) { _ in selection = rows.first?.id }
         .inspector(isPresented: Binding(get: { selection != nil }, set: { if !$0 { selection = nil } })) {
             if let id = selection, let t = store.tickets.first(where: { $0.id == id }) {
-                TicketDetailView(summary: t).id(id).inspectorColumnWidth(min: 400, ideal: 460, max: 700)
+                TicketDetailView(summary: t).id(id).inspectorColumnWidth(min: 360, ideal: 420, max: 640)
             }
         }
     }
@@ -76,16 +69,19 @@ struct HistoryView: View {
 extension TicketSummary { var sortDate: Date { created ?? .distantPast } }
 
 struct Stat: View {
-    let title: String, value: Int
+    let title: String, value: Int, symbol: String
     var tint: Color = .primary
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text("\(value)").font(.system(size: 26, weight: .semibold)).foregroundStyle(tint).contentTransition(.numericText())
+        HStack(spacing: 10) {
+            Image(systemName: symbol).font(.title3).foregroundStyle(tint == .primary ? .secondary : tint).frame(width: 24)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(value)").font(.title2.weight(.semibold)).monospacedDigit().contentTransition(.numericText())
+                Text(title).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.separator))
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

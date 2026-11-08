@@ -82,9 +82,17 @@ final class AppStore {
 
     // MARK: 联系人 (默认中文 / 中国, 本地记忆)
 
-    var contact: Contact {
-        get { (defaults.data(forKey: "contact")).flatMap { try? JSONDecoder().decode(Contact.self, from: $0) } ?? Contact() }
-        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: "contact") }
+    /// 联系人在「设置」中维护 (默认中文 / 中国), 持久化到 UserDefaults
+    var contact: Contact = AppStore.loadContact() {
+        didSet { UserDefaults.standard.set(try? JSONEncoder().encode(contact), forKey: "contact") }
+    }
+    static func loadContact() -> Contact {
+        UserDefaults.standard.data(forKey: "contact").flatMap { try? JSONDecoder().decode(Contact.self, from: $0) } ?? Contact()
+    }
+    var contactValid: Bool {
+        let c = contact
+        return !c.firstName.isEmpty && !c.lastName.isEmpty && c.email.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil
+            && (!c.preferPhone || !c.phone.isEmpty)
     }
 
     var recentServices: [String] {

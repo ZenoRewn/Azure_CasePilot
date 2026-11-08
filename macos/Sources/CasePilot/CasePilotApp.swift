@@ -9,16 +9,20 @@ struct CasePilotApp: App {
         WindowGroup("CasePilot") {
             RootView()
                 .environment(store)
-                .frame(minWidth: 1180, minHeight: 760)
+                .frame(minWidth: 1000, minHeight: 680)
                 .preferredColorScheme(.light)
         }
         .windowToolbarStyle(.unified)
+        .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandMenu("Case") {
                 Button("新建 Case") { NotificationCenter.default.post(name: .showCreate, object: nil) }.keyboardShortcut("n")
                 Button("刷新") { Task { await store.loadTickets() } }.keyboardShortcut("r")
             }
+        }
+        Settings {
+            ContactSettingsView().environment(store).preferredColorScheme(.light)
         }
     }
 }
@@ -42,11 +46,11 @@ extension Notification.Name {
     static let selectFirstTicket = Notification.Name("selectFirstTicket")
 }
 
-enum Section: String, Hashable { case create, history }
+enum AppSection: String, Hashable { case create, history }
 
 struct RootView: View {
     @Environment(AppStore.self) private var store
-    @State private var section: Section = .create
+    @State private var section: AppSection = .create
 
     var body: some View {
         Group {
@@ -74,17 +78,17 @@ struct RootView: View {
 
 struct Sidebar: View {
     @Environment(AppStore.self) private var store
-    @Binding var section: Section
+    @Binding var section: AppSection
     @State private var confirmLogout = false
 
     var body: some View {
         VStack(spacing: 0) {
             List(selection: Binding(get: { section }, set: { if let s = $0 { section = s } })) {
-                SwiftUI.Section("工作台") {
-                    Label("新建 Case", systemImage: "plus.bubble").tag(Section.create)
+                Section("工作台") {
+                    Label("新建 Case", systemImage: "plus.bubble").tag(AppSection.create)
                     Label("我的 Case", systemImage: "tray.full")
                         .badge(store.openCount)
-                        .tag(Section.history)
+                        .tag(AppSection.history)
                 }
             }
             .listStyle(.sidebar)
