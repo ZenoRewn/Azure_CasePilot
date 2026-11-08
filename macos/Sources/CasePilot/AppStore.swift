@@ -36,6 +36,12 @@ final class AppStore {
         await afterLogin()
     }
 
+    func loginSP(tenant: String, clientId: String, secret: String, cloud: AzureCloud) async throws {
+        identity = try await auth.useSP(tenant: tenant, clientId: clientId, secret: secret, cloud: cloud)
+        SPStore.save(tenant: tenant, clientId: clientId, secret: secret, cloud: cloud)
+        await afterLogin()
+    }
+
     func logout() async {
         await auth.logout()
         identity = nil; tenants = []; subscriptions = []; tickets = []; services = []

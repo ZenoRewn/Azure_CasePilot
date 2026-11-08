@@ -15,7 +15,7 @@ App 未经 Apple 公证, 下载后 macOS 会提示"已损坏"或"无法验证开
 xattr -dr com.apple.quarantine ~/Downloads/CasePilot.app   # 按实际路径修改
 ```
 之后双击即可正常打开。
-支持 Azure CLI 与浏览器 (设备码) 登录。
+支持 Azure CLI、浏览器 (设备码)、App Registration 三种登录。App Registration 的 Tenant/Client ID 保存在本机, Secret 保存在 macOS 钥匙串, 下次自动填充; 需在订阅上授予 Support Request Contributor 与 Reader 角色。
 构建: `cd macos && ./build_app.sh v1.1.0`; 测试: `swift test`。
 
 ## Web 版 (跨平台, 下载即用 macOS Apple Silicon)

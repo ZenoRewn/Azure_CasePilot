@@ -4,7 +4,7 @@ struct CreateCaseView: View {
     @Environment(AppStore.self) private var store
     var onCreated: () -> Void
 
-    @State private var kind: CaseKind = .technical
+    @State private var showMore = false
     @State private var draft = NewCase()
     @State private var serviceQuery = ""
     @State private var showServicePicker = false
@@ -25,43 +25,40 @@ struct CreateCaseView: View {
     var body: some View {
         Form {
             Section {
-                Picker("类别", selection: $kind) { ForEach(CaseKind.allCases) { Text($0.label).tag($0) } }
-                    .pickerStyle(.segmented)
                 LabeledContent("服务") {
                     HStack {
                         Button { showServicePicker = true } label: {
                             Text(draft.service?.displayName ?? "选择服务…").foregroundStyle(draft.service == nil ? .secondary : .primary)
                         }
-                        .disabled(kind != .technical)
                         .popover(isPresented: $showServicePicker, arrowEdge: .bottom) {
                             ServicePicker(services: store.services, query: $serviceQuery) { s in showServicePicker = false; Task { await pick(s) } }
                         }
-                        if kind == .technical && store.sub != nil {
-                            Button("从资源选择…", systemImage: "shippingbox") { showResourcePicker = true }.help("从订阅资源反查服务")
+                        if store.sub != nil {
+                            Button("从资源选择", systemImage: "shippingbox") { showResourcePicker = true }
+                                .labelStyle(.iconOnly).help("从订阅资源反查服务")
                         }
                     }
                 }
-                if kind == .technical && draft.service == nil && !chipServices.isEmpty {
-                    LabeledContent("常用") {
-                        FlowChips(items: chipServices.map(\.displayName)) { name in
-                            if let s = store.services.first(where: { $0.displayName == name }) { Task { await pick(s) } }
-                        }
+                if draft.service == nil {
+                    FlowChips(items: quickServices.map(\.label)) { l in
+                        if let s = quickServices.first(where: { $0.label == l })?.service { Task { await pick(s) } }
                     }
                 }
                 Picker("问题类型", selection: $draft.problem) {
                     Text(loadingProblems ? "加载中…" : draft.service == nil ? "先选择服务" : "请选择").tag(ProblemClassification?.none)
                     ForEach(problems) { Text($0.displayName).tag(Optional($0)) }
                 }.disabled(problems.isEmpty)
-                if kind == .technical {
-                    Picker("相关资源", selection: $draft.resourceId) {
-                        Text(resources.isEmpty ? "不指定" : "不指定 (\(resources.count) 个可选)").tag(String?.none)
-                        ForEach(resources) { Text("\($0.name) · \($0.location)").tag(Optional($0.id)) }
-                    }
+                Picker("严重性", selection: $draft.severity) {
+                    ForEach(Severity.allCases) { Text("\($0.level) \($0.title)").tag($0) }
                 }
-            } header: { Text("问题类别") }
+                .pickerStyle(.segmented)
+                .onChange(of: draft.severity) { _, s in draft.require24x7 = s.isHigh }
+            } footer: {
+                Text(draft.severity.detail + (store.supportPlan.map { " · 当前支持计划: \($0)" } ?? "")).foregroundStyle(.secondary)
+            }
 
             if isVMQuota {
-                Section("配额明细 · Compute vCPU") {
+                Section("配额明细") {
                     TextField("区域", text: $quota.region, prompt: Text("eastus"))
                     TextField("VM 系列", text: $quota.vmFamily, prompt: Text("DSv5 Series"))
                     TextField("新上限 (vCPU)", text: $quota.newLimit, prompt: Text("200"))
@@ -69,50 +66,40 @@ struct CreateCaseView: View {
             }
 
             Section {
-                TextField("标题", text: $draft.title, prompt: Text("例: East US gpt-4o 部署持续返回 429"))
+                TextField("标题", text: $draft.title, prompt: Text("一句话说明问题"))
                     .onChange(of: draft.title) { _, v in if v.count > 200 { draft.title = String(v.prefix(200)) } }
                 TextEditor(text: $draft.description)
-                    .font(.body).frame(minHeight: 160)
+                    .font(.body).frame(minHeight: 200)
                     .overlay(alignment: .topLeading) {
                         if draft.description.isEmpty {
-                            Text("现象、业务影响、首次发生时间 (含时区)、Request ID、已做的排查…")
+                            Text("现象、影响、发生时间 (含时区)、错误信息 / Request ID")
                                 .foregroundStyle(.tertiary).padding(.leading, 5).allowsHitTesting(false)
                         }
                     }
-                Toggle("指定问题开始时间", isOn: $useStart)
-                if useStart { DatePicker("开始时间", selection: Binding(get: { draft.startTime ?? Date() }, set: { draft.startTime = $0 })) }
-                Toggle("允许 Microsoft 收集高级诊断信息", isOn: $draft.consent)
             } header: {
-                HStack { Text("问题描述"); Spacer(); Button("插入模板", action: insertTemplate).buttonStyle(.link).font(.caption) }
-            } footer: {
-                Text("附上 Request ID / Correlation ID 与精确时间, 可显著缩短排查时间。").foregroundStyle(.secondary)
+                HStack { Text("描述"); Spacer(); Button("插入模板", action: insertTemplate).buttonStyle(.link).font(.caption) }
             }
 
             Section {
-                Picker("严重性", selection: $draft.severity) {
-                    ForEach(Severity.allCases) { s in
-                        Text("\(s.level) · \(s.title)  ").bold() + Text(s.detail).foregroundStyle(.secondary)
+                DisclosureGroup("更多选项", isExpanded: $showMore) {
+                    if kind == .technical {
+                        Picker("相关资源", selection: $draft.resourceId) {
+                            Text(resources.isEmpty ? "不指定" : "不指定 (\(resources.count) 个可选)").tag(String?.none)
+                            ForEach(resources) { Text("\($0.name) · \($0.location)").tag(Optional($0.id)) }
+                        }
                     }
+                    Toggle("指定问题开始时间", isOn: $useStart)
+                    if useStart { DatePicker("开始时间", selection: Binding(get: { draft.startTime ?? Date() }, set: { draft.startTime = $0 })) }
+                    Toggle("需要 24×7 响应", isOn: $draft.require24x7).disabled(!draft.severity.isHigh)
+                    Toggle("允许收集高级诊断信息", isOn: $draft.consent)
                 }
-                .pickerStyle(.radioGroup)
-                .onChange(of: draft.severity) { _, s in draft.require24x7 = s.isHigh }
-                Toggle("需要 24×7 响应", isOn: $draft.require24x7).disabled(!draft.severity.isHigh)
-            } header: {
-                HStack { Text("影响程度"); Spacer(); if let p = store.supportPlan { Text("支持计划: \(p)").font(.caption).foregroundStyle(.secondary) } }
-            }
-
-            Section("联系人") {
                 LabeledContent {
-                    SettingsLink { Text("编辑…") }
+                    SettingsLink { Text("编辑") }
                 } label: {
                     if store.contactValid {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(draft.contact.lastName)\(draft.contact.firstName) · \(draft.contact.email)")
-                            Text("\(Contact.languages.first { $0.0 == draft.contact.language }?.1 ?? "") · \(draft.contact.country) · \(draft.contact.timeZone)")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
+                        Text("联系人  ").foregroundStyle(.secondary) + Text("\(draft.contact.lastName)\(draft.contact.firstName) · \(draft.contact.email)")
                     } else {
-                        Label("尚未设置联系人 (⌘,)", systemImage: "exclamationmark.circle").foregroundStyle(.orange)
+                        Label("请先设置联系人", systemImage: "exclamationmark.circle").foregroundStyle(.orange)
                     }
                 }
             }
@@ -123,13 +110,13 @@ struct CreateCaseView: View {
                         Label(r.text, systemImage: r.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                             .foregroundStyle(r.ok ? .green : .orange).textSelection(.enabled)
                         Spacer()
-                        if r.ok { Button("查看我的 Case", action: onCreated) }
+                        if r.ok { Button("查看", action: onCreated) }
                     }
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(maxWidth: 820)
+        .frame(maxWidth: 720)
         .frame(maxWidth: .infinity)
         .navigationTitle("新建 Case")
         .navigationSubtitle(missing.isEmpty ? "可以提交" : "还需: " + missing.joined(separator: "、"))
@@ -147,8 +134,6 @@ struct CreateCaseView: View {
         }
         .onAppear { draft.contact = store.contact }
         .onChange(of: store.contact) { _, c in draft.contact = c }
-        .onChange(of: kind) { _, _ in applyKind() }
-        .onChange(of: store.services) { _, _ in applyKind() }
         .onChange(of: store.subscriptionId) { _, _ in Task { await loadResources() } }
         .sheet(isPresented: $showResourcePicker) { ResourcePicker { svc, res in Task { await pick(svc, resource: res.id) } } }
         .sheet(item: Binding(get: { preview.map { IdText(text: $0) } }, set: { preview = $0?.text })) { p in
@@ -165,6 +150,20 @@ struct CreateCaseView: View {
     }
 
     private var missing: [String] { checklist.filter { !$0.1 }.map(\.0) }
+
+    /// 类别由所选服务推断, 无需用户额外选择
+    private var kind: CaseKind {
+        guard let s = draft.service else { return .technical }
+        return CaseKind.allCases.first { $0.matches(s) } ?? .technical
+    }
+
+    /// 快捷入口: 配额 / 计费 + 最近与常用服务
+    private var quickServices: [(label: String, service: SupportService)] {
+        var out: [(String, SupportService)] = []
+        if let q = store.services.first(where: CaseKind.quota.matches) { out.append(("配额申请", q)) }
+        if let b = store.services.first(where: CaseKind.billing.matches) { out.append(("计费 / 订阅", b)) }
+        return out + chipServices.prefix(4).map { ($0.displayName, $0) }
+    }
 
     // MARK: 校验
 
@@ -207,14 +206,6 @@ struct CreateCaseView: View {
     }
 
     // MARK: 动作
-
-    private func applyKind() {
-        if kind == .technical {
-            if let s = draft.service, CaseKind.allCases.contains(where: { $0.matches(s) }) { draft.service = nil; draft.problem = nil; problems = [] }
-        } else if let s = store.services.first(where: kind.matches) {
-            Task { await pick(s) }
-        }
-    }
 
     private func pick(_ s: SupportService, resource: String? = nil) async {
         guard let t = store.tenantId else { return }

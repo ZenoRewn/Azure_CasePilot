@@ -8,7 +8,7 @@ struct AppError: LocalizedError {
 
 /// 认证: Azure CLI 会话或浏览器设备码登录 (使用 Azure CLI 公共 Client ID, 客户无需建 App)
 actor AuthProvider {
-    enum Mode { case none, cli, device }
+    enum Mode { case none, cli, device, sp }
     static let deviceClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
 
     private(set) var mode: Mode = .none
@@ -16,6 +16,7 @@ actor AuthProvider {
     private var refreshToken: String?
     private var homeTenant: String?
     private var cache: [String: (String, Date)] = [:]
+    private var sp: (tenant: String, clientId: String, secret: String)?
 
     struct Identity { let user: String; let tenant: String; let cloud: AzureCloud; let method: String }
 
@@ -95,7 +96,17 @@ actor AuthProvider {
         throw AppError(message: "验证码已过期, 请重新获取")
     }
 
-    func logout() { mode = .none; refreshToken = nil; homeTenant = nil; cache = [:] }
+    // MARK: App Registration (client credentials)
+
+    func useSP(tenant: String, clientId: String, secret: String, cloud c: AzureCloud) async throws -> Identity {
+        let t = tenant.trimmingCharacters(in: .whitespaces), id = clientId.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty, !id.isEmpty, !secret.isEmpty else { throw AppError(message: "请填写 Tenant ID、Client ID 与 Client Secret") }
+        mode = .sp; cloud = c; cache = [:]; sp = (t, id, secret)
+        do { _ = try await token(tenant: t) } catch { mode = .none; sp = nil; throw error }
+        return Identity(user: "App · \(id.prefix(8))…", tenant: t, cloud: c, method: "App Registration")
+    }
+
+    func logout() { mode = .none; sp = nil; refreshToken = nil; homeTenant = nil; cache = [:] }
 
     // MARK: 令牌
 
@@ -105,6 +116,15 @@ actor AuthProvider {
         let (t, exp): (String, Date)
         switch mode {
         case .none: throw AppError(message: "尚未登录")
+        case .sp:
+            guard let sp else { throw AppError(message: "尚未登录") }
+            if let tenant, tenant != sp.tenant { throw AppError(message: "App Registration 仅能访问其所在租户") }
+            let j: [String: Any]
+            do {
+                j = try await Self.postForm("\(cloud.login)/\(sp.tenant)/oauth2/v2.0/token", [
+                    "grant_type": "client_credentials", "client_id": sp.clientId, "client_secret": sp.secret, "scope": "\(cloud.arm)/.default"])
+            } catch { throw AppError(message: "App Registration 获取令牌失败\n\(error.localizedDescription)") }
+            (t, exp) = (j["access_token"] as? String ?? "", Date().addingTimeInterval(Double(j["expires_in"] as? Int ?? 3600)))
         case .cli:
             var args = ["account", "get-access-token", "--resource", cloud.arm + "/"]
             if let tenant { args += ["--tenant", tenant] }

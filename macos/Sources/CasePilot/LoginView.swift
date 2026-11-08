@@ -3,13 +3,17 @@ import SwiftUI
 struct LoginView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.openURL) private var openURL
-    enum Method: String, CaseIterable { case cli = "Azure CLI", device = "浏览器登录" }
+    enum Method: String, CaseIterable { case cli = "Azure CLI", device = "浏览器", sp = "App Registration" }
     @State private var method: Method = .cli
     @State private var cloud: AzureCloud = .global
     @State private var busy = false
     @State private var error: String?
     @State private var code: AuthProvider.DeviceCode?
     @State private var autoTried = false
+    @State private var spTenant = ""
+    @State private var spClient = ""
+    @State private var spSecret = ""
+    @State private var spCloud: AzureCloud = .global
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,6 +33,17 @@ struct LoginView: View {
                         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
                     Button { Task { await loginCLI() } } label: { primaryLabel("使用 Azure CLI 继续") }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(busy)
+                } else if method == .sp {
+                    Form {
+                        Picker("云环境", selection: $spCloud) { ForEach(AzureCloud.allCases) { Text($0.label).tag($0) } }
+                        TextField("Tenant ID", text: $spTenant)
+                        TextField("Client ID", text: $spClient)
+                        SecureField("Client Secret", text: $spSecret)
+                    }.formStyle(.grouped).scrollDisabled(true).frame(height: 210).padding(.horizontal, -20)
+                    Button { Task { await loginSP() } } label: { primaryLabel("使用 App Registration 登录") }
+                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(busy)
+                    Text("需在订阅上授予 Support Request Contributor 与 Reader 角色。信息保存在本机, Secret 存入钥匙串。")
+                        .font(.caption).foregroundStyle(.secondary)
                 } else {
                     Picker("云环境", selection: $cloud) { ForEach(AzureCloud.allCases) { Text($0.label).tag($0) } }
                     if let code {
@@ -63,6 +78,7 @@ struct LoginView: View {
         .task {
             guard !autoTried else { return }
             autoTried = true
+            if let sp = SPStore.load() { spTenant = sp.tenant; spClient = sp.clientId; spSecret = sp.secret; spCloud = sp.cloud }
             if AuthProvider.azPath() != nil { await loginCLI(silent: true) } else { method = .device }
         }
     }
@@ -75,6 +91,12 @@ struct LoginView: View {
         busy = true; defer { busy = false }
         do { try await store.loginCLI(); error = nil }
         catch { self.error = (silent ? "未检测到可用的 Azure CLI 会话。请执行 az login 后重试, 或改用浏览器登录。\n" : "") + error.localizedDescription }
+    }
+
+    private func loginSP() async {
+        busy = true; defer { busy = false }
+        do { try await store.loginSP(tenant: spTenant, clientId: spClient, secret: spSecret, cloud: spCloud); error = nil }
+        catch { self.error = error.localizedDescription }
     }
 
     private func loginDevice() async {

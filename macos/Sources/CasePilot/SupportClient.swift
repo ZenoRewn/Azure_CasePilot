@@ -168,7 +168,8 @@ struct SupportClient {
         let path = "\(Self.base(sub))/supportTickets/\(name)?\(v)"
         var status = ""
         for _ in 0..<4 {
-            _ = try await request("PATCH", path, tenant: tenant, body: ["status": "closed"])
+            do { _ = try await request("PATCH", path, tenant: tenant, body: ["status": "closed"]) }
+            catch let e as AppError where e.message.contains("redundant action") || e.message.contains("currently Closed") {}
             try await Task.sleep(for: .seconds(3))
             status = (try await get(path, tenant: tenant)["properties"] as? [String: Any])?["status"] as? String ?? ""
             if status.lowercased() == "closed" { return }
