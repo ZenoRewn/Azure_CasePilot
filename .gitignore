@@ -4,3 +4,6 @@ build/
 dist/
 *.spec
 .DS_Store
+.build/
+macos/dist/
+macos/build/

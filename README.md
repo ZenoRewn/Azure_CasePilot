@@ -4,7 +4,13 @@
 
 本地一键创建 Azure Support Case 的 Web 工具。零第三方依赖 (Python 3.9+ 标准库), 直接调用 ARM `Microsoft.Support` REST API (2024-04-01)。
 
-## 下载即用 (macOS, Apple Silicon)
+## 原生 macOS App (推荐, v1.1.0+)
+SwiftUI 原生应用 (`macos/`), Universal (Apple Silicon + Intel), 约 1.2MB, macOS 14+。
+到 [Releases](https://github.com/ZenoRewn/Azure_CasePilot/releases) 下载 `CasePilot-*-macOS-universal.zip`, 解压双击即可。
+关闭窗口或 ⌘Q 即完全退出, 无后台服务。支持 Azure CLI 与浏览器 (设备码) 登录。
+构建: `cd macos && ./build_app.sh v1.1.0`; 测试: `swift test`。
+
+## Web 版 (跨平台, 下载即用 macOS Apple Silicon)
 到 [Releases](https://github.com/ZenoRewn/Azure_CasePilot/releases) 下载 `CasePilot-*-macOS-arm64.zip`, 解压后双击 `CasePilot.app`。
 App 未签名, 首次打开如被拦截: 右键 → 打开, 或执行 `xattr -dr com.apple.quarantine CasePilot.app`。
 
