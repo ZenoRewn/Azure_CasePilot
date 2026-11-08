@@ -79,7 +79,6 @@ struct RootView: View {
 struct Sidebar: View {
     @Environment(AppStore.self) private var store
     @Binding var section: AppSection
-    @State private var confirmLogout = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -93,20 +92,21 @@ struct Sidebar: View {
             }
             .listStyle(.sidebar)
             if let id = store.identity {
-                HStack(spacing: 10) {
-                    Circle().fill(Color.accentColor.opacity(0.15)).frame(width: 30, height: 30)
-                        .overlay(Text(String(id.user.prefix(1)).uppercased()).font(.callout.weight(.semibold)).foregroundStyle(Color.accentColor))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(id.user).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
-                        Text("\(id.method) · \(id.cloud.rawValue)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                IdentityMenu {
+                    HStack(spacing: 10) {
+                        Circle().fill(Color.accentColor.opacity(0.15)).frame(width: 30, height: 30)
+                            .overlay(Text(String(id.user.prefix(1)).uppercased()).font(.callout.weight(.semibold)).foregroundStyle(Color.accentColor))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(id.user).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                            Text(id.method).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)
                     }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)
+                    .padding(12)
+                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .padding(12)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
-                .contentShape(Rectangle())
-                .overlay { IdentityMenu().opacity(0.011) }
                 .padding(10)
             }
         }
@@ -114,13 +114,14 @@ struct Sidebar: View {
 }
 
 /// 点击身份卡: 切换租户 / 订阅 / 认证方式
-struct IdentityMenu: View {
+struct IdentityMenu<Label: View>: View {
     @Environment(AppStore.self) private var store
+    @ViewBuilder var label: Label
     var body: some View {
         Menu {
             Section("租户") {
                 ForEach(store.tenants) { t in
-                    Toggle(t.name, isOn: Binding(get: { store.tenantId == t.id }, set: { if $0 { store.tenantId = t.id } }))
+                    Toggle(t.domain.isEmpty ? t.name : "\(t.name) · \(t.domain)", isOn: Binding(get: { store.tenantId == t.id }, set: { if $0 { store.tenantId = t.id } }))
                 }
             }
             Section("订阅") {
@@ -141,8 +142,9 @@ struct IdentityMenu: View {
             }
             Divider()
             Button("退出登录", role: .destructive) { Task { await store.logout() } }
-        } label: { Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity) }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden)
+        } label: { label }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+        .help("切换租户 / 订阅 / 认证方式")
     }
 }
 

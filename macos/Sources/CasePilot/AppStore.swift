@@ -62,7 +62,10 @@ final class AppStore {
     }
 
     private func afterLogin() async {
-        tenants = (try? await client.tenants()) ?? []
+        tenants = ((try? await client.tenants()) ?? []).map { t in
+            // App Registration 列租户时常无 displayName, 用域名代替 GUID
+            t.name == t.id && !t.domain.isEmpty ? Tenant(id: t.id, name: t.domain, domain: "") : t
+        }
         if tenants.isEmpty, let t = identity?.tenant { tenants = [Tenant(id: t, name: t, domain: "")] }
         let saved = defaults.string(forKey: "tenant")
         let pick = tenants.first { $0.id == saved }?.id ?? tenants.first { $0.id == identity?.tenant }?.id ?? tenants.first?.id

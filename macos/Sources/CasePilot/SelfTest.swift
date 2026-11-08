@@ -7,6 +7,7 @@ enum SelfTest {
         let env = ProcessInfo.processInfo.environment
         if let dir = env["CASEPILOT_SNAPSHOT"] { Task { await snapshot(dir: dir, live: env["CASEPILOT_SELFTEST"] == "1"); exit(0) } }
         else if env["CASEPILOT_SELFTEST"] == "1" { Task { await e2e(); exit(0) } }
+        else if env["CASEPILOT_MENU_TEST"] == "1" { Task { await menuTest(); exit(0) } }
         else if env["CASEPILOT_SWITCH_TEST"] == "1" { Task { await switchTest(); exit(0) } }
         else if let f = env["CASEPILOT_SP_TEST"] { Task { await spTest(f); exit(0) } }
     }
@@ -66,6 +67,29 @@ enum SelfTest {
             try await store.client.close(c.id, tenant: t, sub: sub)
             log("closed \(try await store.client.detail(c.id, tenant: t, sub: sub).summary.status)")
         } catch { log("ERROR \(error.localizedDescription)") }
+    }
+
+    /// 在身份卡位置模拟真实鼠标点击, 检查是否弹出菜单
+    @MainActor static func menuTest() async {
+        try? await Task.sleep(for: .seconds(12))
+        guard let w = NSApp.windows.first(where: \.isVisible), let v = w.contentView else { print("[menu] no window"); return }
+        let p = NSPoint(x: 100, y: 45)   // 侧边栏底部身份卡 (窗口坐标, 左下原点)
+        var opened = false
+        let obs = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { n in
+            opened = true
+            let items = (n.object as? NSMenu)?.items.map(\.title).filter { !$0.isEmpty } ?? []
+            print("[menu] items=\(items.prefix(12))"); fflush(stdout)
+            (n.object as? NSMenu)?.cancelTracking()
+        }
+        for t in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            if let e = NSEvent.mouseEvent(with: t, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                          windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                NSApp.postEvent(e, atStart: false)
+            }
+        }
+        try? await Task.sleep(for: .seconds(3))
+        NotificationCenter.default.removeObserver(obs)
+        print("[menu] opened=\(opened) hit=\(String(describing: v.hitTest(p).map { type(of: $0) }))"); fflush(stdout)
     }
 
     @MainActor static func switchTest() async {
