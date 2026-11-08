@@ -59,3 +59,8 @@ python3 -m unittest discover -s tests
 python3 -m pip install pyinstaller certifi
 ./build_mac.sh v1.0.0      # 产物: dist/CasePilot-v1.0.0-macOS-<arch>.zip
 ```
+
+## 已知限制 / 待办
+- **云环境**: 原生 App 仅支持 Azure Global。
+- **Windows**: 原生 App 仅 macOS; Windows 用户可使用 Web 版 (`start.bat`, 需 Python 3.9+), 但 **尚未在 Windows 上实测**。
+- **签名公证**: 目前为 ad-hoc 签名, 首次打开需执行 `xattr`。要免除此步需 Apple Developer Program 的 "Developer ID Application" 证书 + `notarytool` 公证。

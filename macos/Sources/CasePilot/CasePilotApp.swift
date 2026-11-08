@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.appearance = NSAppearance(named: .aqua)
         NSApp.activate(ignoringOtherApps: true)
         #if DEBUG
-        Task { @MainActor in SelfTest.runIfRequested() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { SelfTest.runIfRequested() }
         #endif
     }
 }
@@ -101,17 +101,48 @@ struct Sidebar: View {
                         Text("\(id.method) · \(id.cloud.rawValue)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     Spacer(minLength: 0)
-                    Button { confirmLogout = true } label: { Image(systemName: "rectangle.portrait.and.arrow.right") }
-                        .buttonStyle(.borderless).help("切换身份")
+                    Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)
                 }
                 .padding(12)
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                .contentShape(Rectangle())
+                .overlay { IdentityMenu().opacity(0.011) }
                 .padding(10)
             }
         }
-        .confirmationDialog("切换身份?", isPresented: $confirmLogout) {
-            Button("切换", role: .destructive) { Task { await store.logout() } }
-        }
+    }
+}
+
+/// 点击身份卡: 切换租户 / 订阅 / 认证方式
+struct IdentityMenu: View {
+    @Environment(AppStore.self) private var store
+    var body: some View {
+        Menu {
+            Section("租户") {
+                ForEach(store.tenants) { t in
+                    Toggle(t.name, isOn: Binding(get: { store.tenantId == t.id }, set: { if $0 { store.tenantId = t.id } }))
+                }
+            }
+            Section("订阅") {
+                Toggle("无 · 租户级", isOn: Binding(get: { store.subscriptionId.isEmpty }, set: { if $0 { store.subscriptionId = "" } }))
+                ForEach(store.subscriptions) { s in
+                    Toggle(s.name, isOn: Binding(get: { store.subscriptionId == s.id }, set: { if $0 { store.subscriptionId = s.id } }))
+                }
+            }
+            Section("切换认证方式") {
+                Button("Azure CLI", systemImage: "terminal") { Task { await store.logout(); try? await store.loginCLI() } }
+                Button("浏览器登录…", systemImage: "safari") { Task { await store.logout(switchTo: "浏览器") } }
+                if let sp = SPStore.load(), !sp.secret.isEmpty {
+                    Button("App Registration (\(sp.clientId.prefix(8))…)", systemImage: "key") {
+                        Task { await store.logout(); try? await store.loginSP(tenant: sp.tenant, clientId: sp.clientId, secret: sp.secret, cloud: .global) }
+                    }
+                }
+                Button("App Registration…", systemImage: "key.horizontal") { Task { await store.logout(switchTo: "App Registration") } }
+            }
+            Divider()
+            Button("退出登录", role: .destructive) { Task { await store.logout() } }
+        } label: { Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity) }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden)
     }
 }
 

@@ -44,6 +44,13 @@ struct CreateCaseView: View {
                         if let s = quickServices.first(where: { $0.label == l })?.service { Task { await pick(s) } }
                     }
                 }
+                if draft.service == nil && !store.recentProblems.isEmpty {
+                    LabeledContent("最近使用") {
+                        FlowChips(items: store.recentProblems.map(\.label)) { l in
+                            if let r = store.recentProblems.first(where: { $0.label == l }) { Task { await reuse(r) } }
+                        }
+                    }
+                }
                 Picker("问题类型", selection: $draft.problem) {
                     Text(loadingProblems ? "加载中…" : draft.service == nil ? "先选择服务" : "请选择").tag(ProblemClassification?.none)
                     ForEach(problems) { Text($0.displayName).tag(Optional($0)) }
@@ -186,7 +193,7 @@ struct CreateCaseView: View {
     }
 
     private var chipServices: [SupportService] {
-        let popular = ["Azure OpenAI Service", "Virtual Machine running Linux", "Virtual Machine running Windows", "Kubernetes Service (AKS)", "Storage Account Management"]
+        let popular = ["Azure OpenAI", "Microsoft Foundry", "Virtual Machine running Linux", "Virtual Machine running Windows", "Kubernetes Service (AKS)", "Storage Account Management"]
         var seen = Set<String>()
         return (store.recentServices + popular).filter { seen.insert($0).inserted }
             .compactMap { n in store.services.first { $0.displayName == n } }.prefix(6).map { $0 }
@@ -231,12 +238,19 @@ struct CreateCaseView: View {
             .joined(separator: "\n")
     }
 
+    private func reuse(_ r: RecentProblem) async {
+        guard let s = store.services.first(where: { $0.name == r.serviceName }) else { return }
+        await pick(s)
+        draft.problem = problems.first { $0.id == r.problemId }
+    }
+
     private func submit() async {
         guard let t = store.tenantId else { return }
         submitting = true; result = nil
         defer { submitting = false }
         do {
             let created = try await store.client.create(finalDraft, tenant: t, sub: store.sub)
+            if let sv = draft.service, let pb = draft.problem { store.remember(service: sv, problem: pb) }
             createdName = created.id
             result = (true, "已创建 Case \(created.ticketNumber.isEmpty ? created.id : created.ticketNumber)")
             draft.title = ""; draft.description = ""; draft.startTime = nil; useStart = false; quota = QuotaRequest()

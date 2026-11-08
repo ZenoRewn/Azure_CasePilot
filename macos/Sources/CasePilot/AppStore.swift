@@ -21,6 +21,19 @@ final class AppStore {
     var loadingTickets = false
 
     var banner: String?
+    /// 登录页: 是否自动尝试 CLI, 以及用户指定的登录方式
+    var autoLogin = true
+    var requestedLogin: String?
+    var recentProblems: [RecentProblem] = AppStore.loadRecent() {
+        didSet { UserDefaults.standard.set(try? JSONEncoder().encode(Array(recentProblems.prefix(6))), forKey: "recentProblems") }
+    }
+    static func loadRecent() -> [RecentProblem] {
+        UserDefaults.standard.data(forKey: "recentProblems").flatMap { try? JSONDecoder().decode([RecentProblem].self, from: $0) } ?? []
+    }
+    func remember(service: SupportService, problem: ProblemClassification) {
+        let r = RecentProblem(serviceName: service.name, serviceDisplayName: service.displayName, problemId: problem.id, problemDisplayName: problem.displayName)
+        recentProblems = [r] + recentProblems.filter { $0.problemId != r.problemId }
+    }
     private let defaults = UserDefaults.standard
     var sub: String? { subscriptionId.isEmpty ? nil : subscriptionId }
 
@@ -42,16 +55,19 @@ final class AppStore {
         await afterLogin()
     }
 
-    func logout() async {
+    func logout(switchTo method: String? = nil) async {
+        autoLogin = false; requestedLogin = method
         await auth.logout()
-        identity = nil; tenants = []; subscriptions = []; tickets = []; services = []
+        identity = nil; tenants = []; subscriptions = []; tickets = []; services = []; supportPlan = nil
     }
 
     private func afterLogin() async {
         tenants = (try? await client.tenants()) ?? []
         if tenants.isEmpty, let t = identity?.tenant { tenants = [Tenant(id: t, name: t, domain: "")] }
         let saved = defaults.string(forKey: "tenant")
-        tenantId = tenants.first { $0.id == saved }?.id ?? tenants.first { $0.id == identity?.tenant }?.id ?? tenants.first?.id
+        let pick = tenants.first { $0.id == saved }?.id ?? tenants.first { $0.id == identity?.tenant }?.id ?? tenants.first?.id
+        // 同一租户切换认证方式时 didSet 不会触发, 需显式重新加载
+        if pick == tenantId { await onTenant() } else { tenantId = pick }
     }
 
     private func onTenant() async {

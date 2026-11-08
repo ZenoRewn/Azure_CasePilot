@@ -7,6 +7,7 @@ enum SelfTest {
         let env = ProcessInfo.processInfo.environment
         if let dir = env["CASEPILOT_SNAPSHOT"] { Task { await snapshot(dir: dir, live: env["CASEPILOT_SELFTEST"] == "1"); exit(0) } }
         else if env["CASEPILOT_SELFTEST"] == "1" { Task { await e2e(); exit(0) } }
+        else if env["CASEPILOT_SWITCH_TEST"] == "1" { Task { await switchTest(); exit(0) } }
         else if let f = env["CASEPILOT_SP_TEST"] { Task { await spTest(f); exit(0) } }
     }
 
@@ -64,6 +65,28 @@ enum SelfTest {
             log("created \(c.ticketNumber)")
             try await store.client.close(c.id, tenant: t, sub: sub)
             log("closed \(try await store.client.detail(c.id, tenant: t, sub: sub).summary.status)")
+        } catch { log("ERROR \(error.localizedDescription)") }
+    }
+
+    @MainActor static func switchTest() async {
+        let store = AppStore()
+        func log(_ s: String) { print("[switch] " + s); fflush(stdout) }
+        func ready() async { for _ in 0..<60 where store.services.isEmpty || store.subscriptions.isEmpty { try? await Task.sleep(for: .milliseconds(300)) } }
+        do {
+            try await store.loginCLI(); await ready(); log("cli \(store.identity!.method) subs=\(store.subscriptions.count)")
+            if let sp = SPStore.load() {
+                await store.logout(); log("after logout identity=\(store.identity == nil) autoLogin=\(store.autoLogin)")
+                try await store.loginSP(tenant: sp.tenant, clientId: sp.clientId, secret: sp.secret, cloud: .global); await ready()
+                log("sp \(store.identity!.method) subs=\(store.subscriptions.count) tickets=\(store.tickets.count)")
+            }
+            await store.logout(switchTo: "浏览器"); log("requested=\(store.requestedLogin ?? "-")")
+            try await store.loginCLI(); await ready(); log("back cli \(store.identity!.method)")
+            store.subscriptionId = ""; try await Task.sleep(for: .seconds(3)); log("tenant-level tickets=\(store.tickets.count)")
+            let svc = store.services.first { $0.displayName == "Azure OpenAI" }!
+            let pb = try await store.client.problems(tenant: store.tenantId!, service: svc)[0]
+            store.remember(service: svc, problem: pb)
+            log("recent persisted=\(AppStore.loadRecent().first?.label ?? "nil")")
+            log("foundry services present=\(["Azure OpenAI", "Microsoft Foundry"].allSatisfy { n in store.services.contains { $0.displayName == n } })")
         } catch { log("ERROR \(error.localizedDescription)") }
     }
 

@@ -118,3 +118,9 @@ struct TicketDetail {
     let props: [String: Any]
     let communications: [Communication]
 }
+
+struct RecentProblem: Codable, Hashable, Identifiable {
+    let serviceName: String, serviceDisplayName: String, problemId: String, problemDisplayName: String
+    var id: String { problemId }
+    var label: String { "\(serviceDisplayName) · \(problemDisplayName.split(separator: "/").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? problemDisplayName)" }
+}

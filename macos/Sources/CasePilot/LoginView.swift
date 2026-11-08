@@ -35,17 +35,15 @@ struct LoginView: View {
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(busy)
                 } else if method == .sp {
                     Form {
-                        Picker("云环境", selection: $spCloud) { ForEach(AzureCloud.allCases) { Text($0.label).tag($0) } }
                         TextField("Tenant ID", text: $spTenant)
                         TextField("Client ID", text: $spClient)
                         SecureField("Client Secret", text: $spSecret)
-                    }.formStyle(.grouped).scrollDisabled(true).frame(height: 210).padding(.horizontal, -20)
+                    }.formStyle(.grouped).scrollDisabled(true).frame(height: 160).padding(.horizontal, -20)
                     Button { Task { await loginSP() } } label: { primaryLabel("使用 App Registration 登录") }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(busy)
                     Text("需在订阅上授予 Support Request Contributor 与 Reader 角色。信息保存在本机, Secret 存入钥匙串。")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
-                    Picker("云环境", selection: $cloud) { ForEach(AzureCloud.allCases) { Text($0.label).tag($0) } }
                     if let code {
                         VStack(spacing: 6) {
                             Text("在浏览器中输入验证码 (已复制)").font(.caption).foregroundStyle(.secondary)
@@ -79,6 +77,8 @@ struct LoginView: View {
             guard !autoTried else { return }
             autoTried = true
             if let sp = SPStore.load() { spTenant = sp.tenant; spClient = sp.clientId; spSecret = sp.secret; spCloud = sp.cloud }
+            if let m = store.requestedLogin.flatMap(Method.init(rawValue:)) { method = m; return }
+            guard store.autoLogin else { return }
             if AuthProvider.azPath() != nil { await loginCLI(silent: true) } else { method = .device }
         }
     }
