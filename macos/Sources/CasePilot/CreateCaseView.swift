@@ -83,8 +83,9 @@ struct CreateCaseView: View {
                 TextField("标题", text: $draft.title, prompt: Text("一句话说明问题"))
                     .onChange(of: draft.title) { _, v in if v.count > 200 { draft.title = String(v.prefix(200)) } }
                 TextEditor(text: $draft.description)
-                    .overlay(alignment: .bottomTrailing) { MicButton(text: $draft.description).padding(6) }
                     .font(.body).frame(minHeight: 200)
+                    .scrollContentBackground(.hidden)
+                    .overlay(alignment: .bottomTrailing) { MicButton(text: $draft.description).padding(6) }
                     .overlay(alignment: .topLeading) {
                         if draft.description.isEmpty {
                             Text("现象、影响、发生时间 (含时区)、错误信息 / Request ID")
@@ -131,7 +132,6 @@ struct CreateCaseView: View {
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
         .frame(maxWidth: 720)
         .frame(maxWidth: .infinity)
         .navigationTitle("新建 Case")

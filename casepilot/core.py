@@ -21,8 +21,7 @@ from pathlib import Path
 SUPPORT_API = "2024-04-01"
 # 从 Finder 启动 .app 时 PATH 很精简, 补上 az 常见安装位置
 os.environ["PATH"] = os.pathsep.join([os.environ.get("PATH", ""), "/opt/homebrew/bin", "/usr/local/bin"])
-# PyInstaller 打包后资源位于 sys._MEIPASS
-STATIC = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)) / "static"
+STATIC = Path(__file__).resolve().parent.parent / "static"
 # 设备码登录使用 Azure CLI 的公共 Client ID, 客户无需自建 App Registration
 DEVICE_CLIENT_ID = os.environ.get("CASEPILOT_CLIENT_ID", "04b07795-8ddb-461a-bbee-02f9e1bf7b46")
 

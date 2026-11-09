@@ -1,62 +1,5 @@
 import SwiftUI
 
-struct Card<Content: View>: View {
-    let step: Int?
-    let title: String
-    var done: Bool = false
-    var trailing: AnyView? = nil
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                if let step {
-                    Text("\(step)").font(.caption.weight(.semibold)).frame(width: 26, height: 26)
-                        .background(done ? Color.accentColor : Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-                        .foregroundStyle(done ? .white : .secondary)
-                        .animation(.easeOut(duration: 0.2), value: done)
-                }
-                Text(title).font(.headline)
-                Spacer()
-                trailing
-            }
-            content
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.separator))
-    }
-}
-
-struct FieldLabel: View {
-    let text: String
-    var optional = false
-    init(_ text: String, optional: Bool = false) { self.text = text; self.optional = optional }
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(text).font(.callout.weight(.medium))
-            if optional { Text("可选").font(.caption).foregroundStyle(.tertiary) }
-        }
-    }
-}
-
-struct LabeledField: View {
-    let label: String
-    @Binding var text: String
-    var prompt = ""
-    var optional = false
-    init(_ label: String, text: Binding<String>, prompt: String = "", optional: Bool = false) {
-        self.label = label; _text = text; self.prompt = prompt; self.optional = optional
-    }
-    var body: some View {
-        VStack(alignment: .leading) {
-            FieldLabel(label, optional: optional)
-            TextField(prompt, text: $text).textFieldStyle(.roundedBorder)
-        }
-    }
-}
-
 struct Badge: View {
     let text: String
     var tint: Color = .secondary
@@ -142,7 +85,7 @@ extension Date {
     var full: String { formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute().locale(Locale(identifier: "zh_CN"))) }
 }
 
-/// Liquid Glass (macOS 26+), 低版本回退为系统材质; 仅用于浮层/强调控件, 不铺满整窗
+/// Liquid Glass 只用于浮于内容之上的控件 (macOS 26+); 低版本回退系统材质。内容区不使用
 extension View {
     @ViewBuilder func glassCard(cornerRadius: CGFloat = 16) -> some View {
         if #available(macOS 26.0, *) {

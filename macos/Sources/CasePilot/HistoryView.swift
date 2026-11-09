@@ -72,23 +72,6 @@ struct HistoryView: View {
 
 extension TicketSummary { var sortDate: Date { created ?? .distantPast } }
 
-struct Stat: View {
-    let title: String, value: Int, symbol: String
-    var tint: Color = .primary
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol).font(.title3).foregroundStyle(tint == .primary ? .secondary : tint).frame(width: 24)
-            VStack(alignment: .leading, spacing: 0) {
-                Text("\(value)").font(.title2.weight(.semibold)).monospacedDigit().contentTransition(.numericText())
-                Text(title).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
 struct TicketDetailView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.openURL) private var openURL

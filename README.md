@@ -4,6 +4,21 @@
 
 快速创建和管理 Azure Support Case: 原生 Mac App、服务器 / AKS 部署与 MCP。
 
+<p>
+  <img src="docs/screenshots/new-case.png" width="49%" alt="新建 Case (AI 帮写)">
+  <img src="docs/screenshots/my-cases.png" width="49%" alt="我的 Case 与详情">
+</p>
+
+## 项目结构
+| 路径 | 说明 |
+|---|---|
+| `macos/` | 原生 SwiftUI App (主产品) |
+| `casepilot/` | Python 核心: 认证、Support API、AI、支持计划、MCP |
+| `server.py` + `static/` | Web 版 / 服务器模式 (本地或容器) |
+| `deploy/` | Dockerfile 配套的 Helm Chart 与 AKS 一键脚本 |
+| `tests/` | 服务端单元测试 |
+| `docs/` | UI 审计、设计规范、改动记录与截图 |
+
 ## 下载安装 (推荐)
 1. 到 [Releases](https://github.com/ZenoRewn/Azure_CasePilot/releases/latest) 下载 `CasePilot-*-macOS-universal.zip` 并解压
 2. **首次打开前必须执行一次** (App 未经 Apple 公证, 否则会提示"已损坏"或"无法验证开发者"):
@@ -41,7 +56,7 @@
 ```bash
 cd macos
 swift test                    # 单元测试
-./build_app.sh v2.2.0         # 产物: dist/CasePilot-v2.2.0-macOS-universal.zip
+./build_app.sh v2.3.0         # 产物: dist/CasePilot-v2.3.0-macOS-universal.zip
 ```
 
 ## MCP (Claude Desktop / VS Code / Copilot 等)

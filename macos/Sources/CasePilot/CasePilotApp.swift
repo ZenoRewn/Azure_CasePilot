@@ -11,7 +11,6 @@ struct CasePilotApp: App {
                 .environment(store)
                 .frame(minWidth: 1000, minHeight: 680)
                 .preferredColorScheme(.light)
-                .windowMaterial()
         }
         .windowToolbarStyle(.unified(showsTitle: true))
         .defaultSize(width: 1280, height: 820)
@@ -98,7 +97,6 @@ struct Sidebar: View {
                 }
             }
             .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
             if let id = store.identity {
                 IdentityMenu {
                     HStack(spacing: 10) {
@@ -113,7 +111,7 @@ struct Sidebar: View {
                         Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)
                     }
                     .padding(12)
-                    .glassCard(cornerRadius: 12)
+                    .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 10))
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .padding(10)
@@ -200,12 +198,5 @@ struct SettingsRoot: View {
             MCPSettingsView().tabItem { Label("MCP", systemImage: "point.3.connected.trianglepath.dotted") }.tag(SettingsTab.mcp)
         }
         .onReceive(NotificationCenter.default.publisher(for: .selectSettingsTab)) { if let t = $0.object as? SettingsTab { tab = t } }
-    }
-}
-
-extension View {
-    /// 窗口背景使用系统材质 (macOS 15+); 14 保持默认
-    @ViewBuilder func windowMaterial() -> some View {
-        if #available(macOS 15.0, *) { self.containerBackground(.thinMaterial, for: .window) } else { self }
     }
 }
