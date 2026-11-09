@@ -53,6 +53,16 @@ class ServiceTest(unittest.TestCase):
                 service._post(cfg, "https://x", b"{}", "application/json")
         self.assertIn("429", e.exception.message)
 
+    def test_server_mode_ignores_client_supplied_keys(self):
+        with mock.patch.dict(service.os.environ, {"CASEPILOT_MODE": "server"}):
+            c = service.ai_config({"ai": {"api_key": "from-browser", "chat_deployment": "x"}})
+        self.assertEqual(c.api_key, service.BASE_AI.api_key)
+        self.assertEqual(c.chat_deployment, "x")
+
+    def test_local_mode_accepts_client_keys(self):
+        with mock.patch.dict(service.os.environ, {"CASEPILOT_MODE": "local"}):
+            self.assertEqual(service.ai_config({"ai": {"api_key": "k"}}).api_key, "k")
+
     def test_transcribe_rejects_large_audio(self):
         with self.assertRaises(service.core.ApiError):
             service.transcribe({"audio": "A" * (service.MAX_AUDIO_B64 + 1)})

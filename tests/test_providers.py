@@ -32,6 +32,26 @@ class AIConfigTest(unittest.TestCase):
         s = providers.AIConfig.from_env({"CASEPILOT_STT_PROVIDER": "azure-speech"})
         self.assertIn("/speechtotext/transcriptions:transcribe", providers.stt_url(s))
 
+    def test_speech_region_builds_regional_endpoint(self):
+        c = providers.AIConfig.from_env({"CASEPILOT_STT_PROVIDER": "azure-speech", "CASEPILOT_SPEECH_REGION": "southeastasia",
+                                         "CASEPILOT_STT_KEY": "sk"})
+        self.assertEqual(providers.stt_url(c),
+                         "https://southeastasia.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2024-11-15")
+
+    def test_auth_headers_per_service(self):
+        c = providers.AIConfig.from_env({"CASEPILOT_AOAI_KEY": "ck", "CASEPILOT_STT_PROVIDER": "azure-speech", "CASEPILOT_STT_KEY": "sk"})
+        self.assertEqual(providers.key_header(c, "chat"), {"api-key": "ck"})
+        self.assertEqual(providers.key_header(c, "stt"), {"Ocp-Apim-Subscription-Key": "sk"})
+        aoai = providers.AIConfig.from_env({"CASEPILOT_STT_KEY": "tk"})
+        self.assertEqual(providers.key_header(aoai, "stt"), {"api-key": "tk"})
+        self.assertEqual(providers.key_header(providers.AIConfig(), "chat"), {})   # 无 key → Entra
+
+    def test_public_hides_keys(self):
+        c = providers.AIConfig.from_env({"CASEPILOT_AOAI_KEY": "secret", "CASEPILOT_STT_KEY": "s2"})
+        pub = c.public()
+        self.assertEqual((pub["api_key"], pub["stt_key"]), (True, True))
+        self.assertNotIn("secret", str(pub))
+
     def test_multipart(self):
         body, ctype = providers.multipart({"language": "zh"}, ("file", "a.wav", b"RIFF", "audio/wav"))
         self.assertIn(b'name="language"', body)

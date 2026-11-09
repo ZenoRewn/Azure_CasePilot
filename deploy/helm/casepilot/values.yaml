@@ -15,6 +15,10 @@ casepilot:
     deployment: gpt-6-luna
     sttEndpoint: https://westus3-azureai-service-507154.openai.azure.com
     sttDeployment: gpt-4o-mini-transcribe
+    sttProvider: azure-openai     # 或 azure-speech
+    speechRegion: ""              # azure-speech 时, 如 southeastasia
+    # 可选: 使用 key 而非 Workload Identity。Secret 需含 aoai-key / stt-key 两个键 (可只填其一)
+    keysSecret: ""
 service:
   type: ClusterIP
   port: 80

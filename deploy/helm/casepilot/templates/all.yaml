@@ -33,6 +33,14 @@ spec:
             - { name: CASEPILOT_AOAI_DEPLOYMENT, value: {{ .Values.casepilot.ai.deployment | quote }} }
             - { name: CASEPILOT_STT_ENDPOINT, value: {{ .Values.casepilot.ai.sttEndpoint | quote }} }
             - { name: CASEPILOT_STT_DEPLOYMENT, value: {{ .Values.casepilot.ai.sttDeployment | quote }} }
+            - { name: CASEPILOT_STT_PROVIDER, value: {{ .Values.casepilot.ai.sttProvider | quote }} }
+            - { name: CASEPILOT_SPEECH_REGION, value: {{ .Values.casepilot.ai.speechRegion | quote }} }
+            {{- with .Values.casepilot.ai.keysSecret }}
+            - name: CASEPILOT_AOAI_KEY
+              valueFrom: { secretKeyRef: { name: {{ . }}, key: aoai-key, optional: true } }
+            - name: CASEPILOT_STT_KEY
+              valueFrom: { secretKeyRef: { name: {{ . }}, key: stt-key, optional: true } }
+            {{- end }}
             - name: CASEPILOT_API_KEY
               valueFrom: { secretKeyRef: { name: {{ .Values.casepilot.apiKeySecret }}, key: api-key } }
           readinessProbe: { httpGet: { path: /readyz, port: http }, periodSeconds: 10 }
