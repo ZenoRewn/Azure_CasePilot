@@ -51,9 +51,10 @@ struct AIComposer: View {
     var body: some View {
         Section {
             HStack(alignment: .top, spacing: 8) {
-                TextField("用一两句话描述问题, 例如: 东南亚 gpt-6-luna 部署下午开始一直 429, 配额没用满",
-                          text: $text, axis: .vertical)
-                    .lineLimit(2...5).textFieldStyle(.plain)
+                // Form 中 TextField 的标题会被当作左侧标签 (黑色), 改用 prompt 作灰色占位并隐藏标签, 输入区占满整行
+                TextField("问题描述", text: $text, prompt: Text("一两句话描述问题, 如: 东南亚 gpt-6-luna 下午开始一直 429, 配额没用满"), axis: .vertical)
+                    .labelsHidden().lineLimit(2...5).textFieldStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .onSubmit { Task { await run(withAnswers: false) } }
                 MicButton(text: $text)
             }
@@ -62,7 +63,7 @@ struct AIComposer: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(questions[i]).font(.callout.weight(.medium))
                         HStack {
-                            TextField("回答或留空", text: $answers[i]).textFieldStyle(.roundedBorder)
+                            TextField("回答", text: $answers[i], prompt: Text("回答或留空")).labelsHidden().textFieldStyle(.roundedBorder)
                             MicButton(text: $answers[i])
                         }
                     }
