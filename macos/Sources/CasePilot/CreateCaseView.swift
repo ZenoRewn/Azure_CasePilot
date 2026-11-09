@@ -41,13 +41,14 @@ struct CreateCaseView: View {
                     }
                 }
                 if draft.service == nil {
-                    FlowChips(items: quickServices.map(\.label)) { l in
+                    FlowChips(items: quickServices.prefix(6).map(\.label)) { l in
                         if let s = quickServices.first(where: { $0.label == l })?.service { Task { await pick(s) } }
                     }
                 }
                 if draft.service == nil && !store.recentProblems.isEmpty {
-                    LabeledContent("最近使用") {
-                        FlowChips(items: store.recentProblems.map(\.label)) { l in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("最近使用").font(.caption).foregroundStyle(.secondary)
+                        FlowChips(items: store.recentProblems.prefix(3).map(\.label)) { l in
                             if let r = store.recentProblems.first(where: { $0.label == l }) { Task { await reuse(r) } }
                         }
                     }

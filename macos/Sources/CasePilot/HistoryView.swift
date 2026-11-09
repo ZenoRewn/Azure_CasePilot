@@ -17,20 +17,14 @@ struct HistoryView: View {
     var body: some View {
         @Bindable var store = store
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Stat(title: "全部", value: store.tickets.count, symbol: "tray.full")
-                Stat(title: "处理中", value: store.tickets.filter(\.isOpen).count, symbol: "clock", tint: .green)
-                Stat(title: "已关闭", value: store.tickets.filter { $0.status == "Closed" }.count, symbol: "checkmark.circle")
-                Stat(title: "A / A+ 级", value: store.tickets.filter { Severity(api: $0.severity)?.isHigh ?? false }.count, symbol: "exclamationmark.triangle", tint: .red)
-            }
             Table(rows, selection: $selection, sortOrder: $sort) {
-                TableColumn("Case", value: \.ticketNumber) { t in Text(t.ticketNumber).font(.callout.monospaced()) }.width(min: 110, ideal: 130)
+                TableColumn("Case", value: \.ticketNumber) { t in Text(t.ticketNumber).font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1).fixedSize() }.width(min: 135, ideal: 140)
                 TableColumn("标题", value: \.title) { t in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(t.title).fontWeight(.medium).lineLimit(1)
                         Text([t.service, t.problem].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }.padding(.vertical, 4)
-                }.width(min: 180, ideal: 320)
+                }.width(min: 200, ideal: 300)
                 TableColumn("严重性", value: \.severity) { t in severityBadge(t.severity) }.width(min: 80, ideal: 96)
                 TableColumn("状态", value: \.status) { t in statusBadge(t.status) }.width(min: 70, ideal: 84)
                 TableColumn("创建时间", value: \.sortDate) { t in Text(t.created?.relative ?? "").foregroundStyle(.secondary).help(t.created?.full ?? "") }.width(min: 70, ideal: 96)
@@ -40,14 +34,24 @@ struct HistoryView: View {
                 else if rows.isEmpty { ContentUnavailableView("该范围内没有 Case", systemImage: "tray") }
             }
             .tableStyle(.inset(alternatesRowBackgrounds: true))
+            .contextMenu(forSelectionType: TicketSummary.ID.self) { ids in
+                if let id = ids.first, let t = store.tickets.first(where: { $0.id == id }) {
+                    Button("复制 Case 号") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t.ticketNumber, forType: .string) }
+                    if let u = store.portalURL(for: t.id) { Button("在 Portal 中打开") { NSWorkspace.shared.open(u) } }
+                }
+            } primaryAction: { ids in selection = ids.first }
         }
-        .padding(16)
+        .padding(.horizontal, 16).padding(.bottom, 16).padding(.top, 8)
         .navigationTitle("我的 Case")
         .navigationSubtitle(store.sub == nil ? "租户级" : store.subscriptions.first { $0.id == store.subscriptionId }?.name ?? "")
         .searchable(text: $query, placement: .toolbar, prompt: "Case 号 / 标题 / 服务")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Picker("状态", selection: $status) { Text("全部").tag(""); Text("处理中").tag("Open"); Text("已关闭").tag("Closed") }
+                Picker("状态", selection: $status) {
+                    Text("全部 \(store.tickets.count)").tag("")
+                    Text("处理中 \(store.tickets.filter(\.isOpen).count)").tag("Open")
+                    Text("已关闭 \(store.tickets.filter { $0.status == "Closed" }.count)").tag("Closed")
+                }
                     .pickerStyle(.segmented).fixedSize()
                 Picker("时间", selection: $store.historyDays) {
                     Text("近 7 天").tag(7); Text("近 30 天").tag(30); Text("近 90 天").tag(90); Text("近 1 年").tag(365)
@@ -104,12 +108,12 @@ struct TicketDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Text(t.ticketNumber).font(.callout.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text(t.ticketNumber).font(.callout.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(1).fixedSize()
                     Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t.ticketNumber, forType: .string); flash("已复制 Case 号") }
                         label: { Image(systemName: "doc.on.doc") }.buttonStyle(.borderless).help("复制 Case 号")
                     statusBadge(t.status); severityBadge(t.severity)
                     Spacer()
-                    if let u = store.portalURL(for: t.id) { Button { openURL(u) } label: { Label("Portal", systemImage: "arrow.up.right.square") } }
+                    if let u = store.portalURL(for: t.id) { Button { openURL(u) } label: { Image(systemName: "arrow.up.right.square") }.buttonStyle(.borderless).help("在 Azure Portal 中打开") }
                     if t.isOpen {
                         Button(role: .destructive) { confirmClose = true } label: {
                             HStack { if closing { ProgressView().controlSize(.small) }; Text(closing ? "关闭中…" : "关闭 Case") }

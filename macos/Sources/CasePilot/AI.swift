@@ -15,6 +15,35 @@ struct AIConfig: Codable, Equatable {
     var sttEndpoint = "https://westus3-azureai-service-507154.openai.azure.com"
     var sttDeployment = "gpt-4o-mini-transcribe"
     var sttLanguage = "zh-CN"
+    var speechRegion = ""      // 设置后 Speech 使用区域端点
+
+    enum Kind { case chat, stt }
+
+    init() {}
+    init(from d: Decoder) throws {   // 兼容旧版本保存的设置 (缺字段时取默认)
+        let c = try d.container(keyedBy: CodingKeys.self), z = AIConfig()
+        chatEndpoint = try c.decodeIfPresent(String.self, forKey: .chatEndpoint) ?? z.chatEndpoint
+        chatDeployment = try c.decodeIfPresent(String.self, forKey: .chatDeployment) ?? z.chatDeployment
+        sttProvider = try c.decodeIfPresent(STTProvider.self, forKey: .sttProvider) ?? z.sttProvider
+        sttEndpoint = try c.decodeIfPresent(String.self, forKey: .sttEndpoint) ?? z.sttEndpoint
+        sttDeployment = try c.decodeIfPresent(String.self, forKey: .sttDeployment) ?? z.sttDeployment
+        sttLanguage = try c.decodeIfPresent(String.self, forKey: .sttLanguage) ?? z.sttLanguage
+        speechRegion = try c.decodeIfPresent(String.self, forKey: .speechRegion) ?? ""
+    }
+
+    /// key 为空 → 使用 Entra 令牌
+    func authHeader(_ kind: Kind, key: String?) -> [String: String] {
+        guard let key, !key.isEmpty else { return [:] }
+        return kind == .stt && sttProvider == .azureSpeech ? ["Ocp-Apim-Subscription-Key": key] : ["api-key": key]
+    }
+
+    var sttURL: String {
+        if sttProvider == .azureSpeech {
+            let base = speechRegion.isEmpty ? sttEndpoint : "https://\(speechRegion).api.cognitive.microsoft.com"
+            return "\(base)/speechtotext/transcriptions:transcribe?api-version=2024-11-15"
+        }
+        return "\(sttEndpoint)/openai/deployments/\(sttDeployment)/audio/transcriptions?api-version=2025-04-01-preview"
+    }
 
     static func load() -> AIConfig {
         UserDefaults.standard.data(forKey: "aiConfig").flatMap { try? JSONDecoder().decode(AIConfig.self, from: $0) } ?? AIConfig()

@@ -6,11 +6,15 @@ struct AIClient {
     let auth: AuthProvider
     var config: AIConfig { AIConfig.load().trimmed }
 
-    private func post(_ url: String, body: Data, contentType: String) async throws -> [String: Any] {
-        var req = URLRequest(url: URL(string: url)!, timeoutInterval: 90)
+    private func post(_ url: String, body: Data, contentType: String, kind: AIConfig.Kind) async throws -> [String: Any] {
+        guard let u = URL(string: url), u.scheme == "https" else { throw AppError(message: "Endpoint 无效: \(url)") }
+        var req = URLRequest(url: u, timeoutInterval: 90)
         req.httpMethod = "POST"
         req.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer " + (try await auth.token(tenant: nil, resource: AuthProvider.cognitive)), forHTTPHeaderField: "Authorization")
+        let keyHeaders = config.authHeader(kind, key: SecretStore.get(kind == .chat ? .aoai : .stt))
+        if keyHeaders.isEmpty {
+            req.setValue("Bearer " + (try await auth.token(tenant: nil, resource: AuthProvider.cognitive)), forHTTPHeaderField: "Authorization")
+        } else { keyHeaders.forEach { req.setValue($1, forHTTPHeaderField: $0) } }
         req.httpBody = body
         var (data, resp) = try await URLSession.shared.data(for: req)
         // 429: 按 Retry-After 退避, 最多重试 2 次
@@ -22,7 +26,7 @@ struct AIClient {
         let j = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         if let http = resp as? HTTPURLResponse, http.statusCode >= 400 {
             let e = j["error"] as? [String: Any] ?? [:]
-            let hint = http.statusCode == 401 || http.statusCode == 403 ? "\n请确认当前身份在该 AI 资源上具备 Cognitive Services OpenAI User 角色。"
+            let hint = http.statusCode == 401 || http.statusCode == 403 ? (keyHeaders.isEmpty ? "\n请确认当前身份在该 AI 资源上具备 Cognitive Services OpenAI User 角色, 或在设置中填写 Key。" : "\n请检查 设置 → AI 与语音 中的 Key 与 Endpoint / 区域。")
                 : http.statusCode == 429 ? "\n配额不足, 可在 设置 → AI 与语音 中换用其他部署或区域。" : ""
             throw AppError(message: "AI 服务错误 \(http.statusCode): \(e["code"] as? String ?? "") \(e["message"] as? String ?? "")" + hint)
         }
@@ -33,7 +37,7 @@ struct AIClient {
         let c = config
         let body: [String: Any] = ["model": c.chatDeployment, "messages": messages, "reasoning_effort": "none",
                                    "response_format": ["type": "json_schema", "json_schema": ["name": "casepilot", "strict": true, "schema": schema]]]
-        let j = try await post("\(c.chatEndpoint)/openai/v1/chat/completions", body: try JSONSerialization.data(withJSONObject: body), contentType: "application/json")
+        let j = try await post("\(c.chatEndpoint)/openai/v1/chat/completions", body: try JSONSerialization.data(withJSONObject: body), contentType: "application/json", kind: .chat)
         let content = (((j["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any])?["content"] as? String) ?? "{}"
         return (try? JSONSerialization.jsonObject(with: Data(content.utf8))) as? [String: Any] ?? [:]
     }
@@ -43,17 +47,15 @@ struct AIClient {
         let boundary = "cp" + UUID().uuidString
         var body = Data()
         func field(_ k: String, _ v: String) { body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(k)\"\r\n\r\n\(v)\r\n".data(using: .utf8)!) }
-        let url: String, part: String
+        let url = c.sttURL, part: String
         if c.sttProvider == .azureSpeech {
-            url = "\(c.sttEndpoint)/speechtotext/transcriptions:transcribe?api-version=2024-11-15"; part = "audio"
-            field("definition", #"{"locales":["\#(c.sttLanguage)"]}"#)
+            part = "audio"; field("definition", #"{"locales":["\#(c.sttLanguage)"]}"#)
         } else {
-            url = "\(c.sttEndpoint)/openai/deployments/\(c.sttDeployment)/audio/transcriptions?api-version=2025-04-01-preview"; part = "file"
-            field("language", String(c.sttLanguage.prefix(2)))
+            part = "file"; field("language", String(c.sttLanguage.prefix(2)))
         }
         body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(part)\"; filename=\"\(filename)\"\r\nContent-Type: \(mime)\r\n\r\n".data(using: .utf8)!)
         body.append(audio); body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-        let j = try await post(url, body: body, contentType: "multipart/form-data; boundary=\(boundary)")
+        let j = try await post(url, body: body, contentType: "multipart/form-data; boundary=\(boundary)", kind: .stt)
         if c.sttProvider == .azureSpeech { return (j["combinedPhrases"] as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }.joined() }
         return j["text"] as? String ?? ""
     }

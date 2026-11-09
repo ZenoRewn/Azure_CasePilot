@@ -60,6 +60,26 @@ final class AIDraftTests: XCTestCase {
         XCTAssertEqual(c.sttProvider, .azureOpenAI)
     }
 
+    func testRequestRoutingAndKeyHeaders() {
+        var c = AIConfig()
+        XCTAssertTrue(c.authHeader(.chat, key: nil).isEmpty)
+        XCTAssertEqual(c.authHeader(.chat, key: "k"), ["api-key": "k"])
+        XCTAssertEqual(c.authHeader(.stt, key: "t"), ["api-key": "t"])
+        c.sttProvider = .azureSpeech; c.speechRegion = "southeastasia"
+        XCTAssertEqual(c.authHeader(.stt, key: "s"), ["Ocp-Apim-Subscription-Key": "s"])
+        XCTAssertEqual(c.sttURL, "https://southeastasia.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2024-11-15")
+        c.speechRegion = ""
+        XCTAssertTrue(c.sttURL.hasPrefix(c.sttEndpoint + "/speechtotext"))
+    }
+
+    func testConfigDecodesOldSavedSettings() throws {
+        // v2.0.0 保存的设置无 speechRegion 字段, 升级后仍可读取
+        let old = #"{"chatEndpoint":"https://x","chatDeployment":"d","sttProvider":"azure-openai","sttEndpoint":"https://y","sttDeployment":"t","sttLanguage":"zh-CN"}"#
+        let c = try JSONDecoder().decode(AIConfig.self, from: Data(old.utf8))
+        XCTAssertEqual(c.chatDeployment, "d")
+        XCTAssertEqual(c.speechRegion, "")
+    }
+
     func testPlanTier() {
         XCTAssertEqual(SupportPlan.tier("Unified Enterprise"), "unified")
         XCTAssertEqual(SupportPlan.tier("Azure Support Plan - Internal"), "internal")

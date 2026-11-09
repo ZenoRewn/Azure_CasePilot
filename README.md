@@ -24,8 +24,8 @@
 点击左下角**身份卡**可随时切换 租户 / 订阅 (含租户级) / 认证方式。
 
 ## 功能
-- **AI 帮写** (v2.0): 一句话描述 (可语音) → AI 选择服务 / 问题类型 / 严重性并写好结构化描述; 信息不足时追问一轮。只从 Azure 真实目录中选择, 不编造。默认 westus3 `gpt-6-luna`, 可在 设置 → AI 与语音 修改 (需 Cognitive Services OpenAI User 角色)
-- **语音输入** (v2.0): 新建描述与补充信息均可录音转写, 支持 Azure OpenAI (`gpt-4o-mini-transcribe`) 或 Azure Speech
+- **AI 帮写** (v2.0): 一句话描述 (可语音) → AI 选择服务 / 问题类型 / 严重性并写好结构化描述; 信息不足时追问一轮。只从 Azure 真实目录中选择, 不编造。默认 westus3 `gpt-6-luna`, 可在 设置 → AI 与语音 修改 Endpoint / 部署 / **API Key** (Key 存钥匙串; 留空则用登录身份, 需 Cognitive Services OpenAI User 角色)
+- **语音输入** (v2.0): 新建描述与补充信息均可录音转写, 支持 Azure OpenAI (`gpt-4o-mini-transcribe`) 或 Azure Speech (可填 **区域 + Speech Key**)
 - **支持计划**: 侧边栏显示 (如 Unified / ProDirect / Standard), 来源标注 (最近 Case 或订阅类型推断; Azure 无公开查询 API); 不支持 A/A+ 时提示
 - **新建 Case**: 选服务 → 问题类型 → 严重性 (C/B/A/A+) → 标题与描述 → 提交 (⌘↩)
   - 快捷入口: 配额申请、计费/订阅、Azure OpenAI、Microsoft Foundry 及最近使用的服务
@@ -41,7 +41,7 @@
 ```bash
 cd macos
 swift test                    # 单元测试
-./build_app.sh v2.0.0         # 产物: dist/CasePilot-v2.0.0-macOS-universal.zip
+./build_app.sh v2.1.0         # 产物: dist/CasePilot-v2.1.0-macOS-universal.zip
 ```
 
 ## MCP (Claude Desktop / VS Code / Copilot 等)
@@ -60,7 +60,7 @@ swift test                    # 单元测试
 RG=<rg> AKS=<aks> ACR=<acr> SUB=<订阅> AOAI=<AI 资源名> ./deploy/aks.sh
 ```
 脚本会: ACR 构建镜像 → 创建托管标识与联邦凭据 → 授予 Support Request Contributor / Reader / Cognitive Services OpenAI User → 生成 API Key → helm 安装。
-服务器模式下所有 API 与 /mcp 需 Bearer API Key; 也可置于 Entra 认证网关后 (`trustProxyAuth`)。非 K8s 服务器: `CASEPILOT_MODE=server CASEPILOT_API_KEY=... AZURE_TENANT_ID/CLIENT_ID/CLIENT_SECRET=... python3 server.py`。
+服务器模式下 AI/Speech Key 只从环境变量或 K8s Secret 读取 (`CASEPILOT_AOAI_KEY` / `CASEPILOT_STT_KEY` / `CASEPILOT_SPEECH_REGION`, Helm `casepilot.ai.keysSecret`), 不接受浏览器传入; 所有 API 与 /mcp 需 Bearer API Key; 也可置于 Entra 认证网关后 (`trustProxyAuth`)。非 K8s 服务器: `CASEPILOT_MODE=server CASEPILOT_API_KEY=... AZURE_TENANT_ID/CLIENT_ID/CLIENT_SECRET=... python3 server.py`。
 
 ## Web 版 (备选, 跨平台)
 仓库根目录的 `server.py` + `static/` 为早期 Web 版 (仅需 Python 3.9+, 零依赖):

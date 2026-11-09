@@ -30,25 +30,39 @@ struct ContactSettingsView: View {
 
 struct AISettingsView: View {
     @State private var c = AIConfig.load()
+    @State private var aoaiKey = SecretStore.get(.aoai) ?? ""
+    @State private var sttKey = SecretStore.get(.stt) ?? ""
+
     var body: some View {
         Form {
             Section {
-                TextField("Endpoint", text: $c.chatEndpoint)
+                TextField("Endpoint", text: $c.chatEndpoint, prompt: Text("https://<资源>.openai.azure.com"))
                 TextField("部署名", text: $c.chatDeployment)
-            } header: { Text("AI 帮写 (Azure OpenAI / Foundry)") } footer: {
-                Text("使用当前登录身份调用, 需在该资源上具备 Cognitive Services OpenAI User 角色。默认 westus3 · gpt-6-luna。").foregroundStyle(.secondary)
+                SecureField("API Key", text: $aoaiKey, prompt: Text("留空则使用当前登录身份 (Entra ID)"))
+            } header: { Text("AI 帮写 · Azure OpenAI / Foundry") } footer: {
+                Text("Key 仅保存在本机钥匙串。使用登录身份时需 Cognitive Services OpenAI User 角色。").foregroundStyle(.secondary)
             }
-            Section("语音输入") {
+            Section {
                 Picker("转写服务", selection: $c.sttProvider) { ForEach(STTProvider.allCases) { Text($0.label).tag($0) } }
-                TextField("Endpoint", text: $c.sttEndpoint)
-                if c.sttProvider == .azureOpenAI { TextField("部署名", text: $c.sttDeployment) }
+                if c.sttProvider == .azureSpeech {
+                    TextField("区域", text: $c.speechRegion, prompt: Text("如 southeastasia (填写后忽略 Endpoint)"))
+                    TextField("Endpoint", text: $c.sttEndpoint).disabled(!c.speechRegion.isEmpty)
+                } else {
+                    TextField("Endpoint", text: $c.sttEndpoint)
+                    TextField("部署名", text: $c.sttDeployment)
+                }
+                SecureField(c.sttProvider == .azureSpeech ? "Speech Key" : "API Key", text: $sttKey, prompt: Text("留空则使用当前登录身份"))
                 TextField("语言", text: $c.sttLanguage)
+            } header: { Text("语音输入") }
+            Section {
+                Button("恢复默认", role: .destructive) { c = AIConfig(); aoaiKey = ""; sttKey = "" }
             }
-            Section { Button("恢复默认") { c = AIConfig() } }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 560)
+        .frame(width: 520, height: 600)
         .onChange(of: c) { _, v in v.save() }
+        .onChange(of: aoaiKey) { _, v in SecretStore.set(.aoai, v.trimmingCharacters(in: .whitespaces)) }
+        .onChange(of: sttKey) { _, v in SecretStore.set(.stt, v.trimmingCharacters(in: .whitespaces)) }
     }
 }
 
