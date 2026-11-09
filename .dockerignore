@@ -1,0 +1,7 @@
+.git
+macos
+dist
+build
+tests
+**/__pycache__
+*.md

@@ -54,6 +54,13 @@ class MCPTest(unittest.TestCase):
         self.assertEqual(captured["contact"]["language"], "zh-hans")   # 默认中文 / 中国
         self.assertEqual(captured["contact"]["country"], "CHN")
 
+    def test_message_uses_case_contact_as_sender(self):
+        captured = {}
+        with mock.patch.object(mcp.core, "ticket_detail", return_value={"properties": {"contactDetails": {"primaryEmailAddress": "c@x.com"}}}), \
+             mock.patch.object(mcp.core, "add_communication", side_effect=lambda *a, **k: captured.update(k) or {"name": "cp"}):
+            rpc(self.s, "tools/call", {"name": "add_case_message", "arguments": {"confirm": True, "name": "n1", "message": "hi"}})
+        self.assertEqual(captured["sender"], "c@x.com")
+
     def test_errors_become_tool_errors(self):
         with mock.patch.object(mcp.core, "list_tickets", side_effect=mcp.core.ApiError(403, "AuthorizationFailed")):
             r = rpc(self.s, "tools/call", {"name": "list_cases", "arguments": {}})["result"]

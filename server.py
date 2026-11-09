@@ -36,8 +36,9 @@ class Config:
     @staticmethod
     def from_env(env):
         mode = env.get("CASEPILOT_MODE", "local")
+        raw = env.get("CASEPILOT_PORT", "")   # K8s 会为同名 Service 注入 tcp://ip:port, 需忽略
         c = Config(mode=mode, host="0.0.0.0" if mode == "server" else "127.0.0.1",
-                   port=int(env.get("CASEPILOT_PORT", "8080" if mode == "server" else "8765")),
+                   port=int(raw) if raw.isdigit() else (8080 if mode == "server" else 8765),
                    api_key=env.get("CASEPILOT_API_KEY", ""))
         if mode == "server" and len(c.api_key) < 24 and env.get("CASEPILOT_TRUST_PROXY_AUTH") != "1":
             sys.exit("server 模式需设置 CASEPILOT_API_KEY (>=24 字符), 或在 Entra 认证网关后设置 CASEPILOT_TRUST_PROXY_AUTH=1")
@@ -161,8 +162,14 @@ ROUTES = {
     "ai/config": lambda r: service.ai_config(r).public(),
     "plan": service.support_plan,
     "reply": lambda r: add_communication(r["tenantId"], r.get("subscriptionId"), r.get("name"),
-                                         r.get("subject"), r.get("body")),
+                                         r.get("subject"), r.get("body"),
+                                         sender=r.get("sender") or (_case_sender(r) if AUTH.mode in ("sp", "workload") else None)),
 }
+
+
+def _case_sender(r):
+    return ticket_detail(r["tenantId"], r.get("subscriptionId"), r.get("name")).get("properties", {}) \
+        .get("contactDetails", {}).get("primaryEmailAddress")
 
 
 MCP = mcp.Server(context=lambda: {"tenantId": os.environ.get("CASEPILOT_TENANT_ID") or os.environ.get("AZURE_TENANT_ID"),

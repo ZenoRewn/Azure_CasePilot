@@ -40,5 +40,27 @@ class TokenResourceTest(unittest.TestCase):
         self.assertEqual(scopes, ["https://cognitiveservices.azure.com/.default"])
 
 
+class WorkloadIdentityTest(unittest.TestCase):
+    def test_exchanges_federated_token(self):
+        import tempfile
+        f = tempfile.NamedTemporaryFile("w", delete=False); f.write("fed-jwt"); f.close()
+        env = {"AZURE_FEDERATED_TOKEN_FILE": f.name, "AZURE_CLIENT_ID": "cid", "AZURE_TENANT_ID": "tid",
+               "AZURE_AUTHORITY_HOST": "https://login.microsoftonline.com/"}
+        sent = {}
+        with mock.patch.dict(os.environ, env), mock.patch.object(core, "_post_form",
+                side_effect=lambda u, fl: sent.update(url=u, **fl) or {"access_token": "at", "expires_in": 3600}):
+            a = core.Auth()
+            a.use_workload()
+            tok = a.token(resource="https://cognitiveservices.azure.com")
+        self.assertEqual(tok, "at")
+        self.assertEqual(sent["url"], "https://login.microsoftonline.com/tid/oauth2/v2.0/token")
+        self.assertEqual(sent["client_assertion"], "fed-jwt")
+        self.assertEqual(sent["scope"], "https://cognitiveservices.azure.com/.default")
+
+    def test_missing_env_is_clear_error(self):
+        with mock.patch.dict(os.environ, {}, clear=True), self.assertRaises(core.ApiError):
+            core.Auth().use_workload()
+
+
 if __name__ == "__main__":
     unittest.main()

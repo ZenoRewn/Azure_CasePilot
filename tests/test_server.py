@@ -48,6 +48,22 @@ class ValidateTest(unittest.TestCase):
             server.validate({**FORM, "contact": {**CONTACT, "method": "phone"}})
 
 
+class CommunicationTest(unittest.TestCase):
+    def test_sender_included_when_given(self):
+        from unittest import mock
+        sent = {}
+        with mock.patch.object(server, "arm", side_effect=lambda m, u, t, b: sent.update(b)):
+            server.add_communication("t", "s", "n", "subj", "body", sender="a@b.com")
+        self.assertEqual(sent["properties"]["sender"], "a@b.com")
+
+    def test_sender_omitted_by_default(self):
+        from unittest import mock
+        sent = {}
+        with mock.patch.object(server, "arm", side_effect=lambda m, u, t, b: sent.update(b)):
+            server.add_communication("t", "s", "n", "subj", "body")
+        self.assertNotIn("sender", sent["properties"])
+
+
 class CheckIdsTest(unittest.TestCase):
     def test_accepts_valid(self):
         server.check_ids({"tenantId": "5b96596a-fc1b-47ce-81c1-7979d58fe273", "name": "casepilot-abc_1.x"})

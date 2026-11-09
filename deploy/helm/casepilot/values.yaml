@@ -1,0 +1,27 @@
+image:
+  repository: zenoseaacr.azurecr.io/casepilot
+  tag: "2.0.0"
+replicas: 2
+# Workload Identity: 托管标识 client id 与租户 (见 deploy/aks.sh)
+workloadIdentity:
+  clientId: ""
+  tenantId: ""
+casepilot:
+  subscriptionId: ""        # MCP 默认订阅
+  apiKeySecret: casepilot-api-key   # 包含 key: api-key
+  trustProxyAuth: false     # 前置 Entra 认证网关 (如 App Gateway / oauth2-proxy) 时设 true
+  ai:
+    endpoint: https://westus3-azureai-service-507154.openai.azure.com
+    deployment: gpt-6-luna
+    sttEndpoint: https://westus3-azureai-service-507154.openai.azure.com
+    sttDeployment: gpt-4o-mini-transcribe
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: false
+  className: webapprouting.kubernetes.azure.com
+  host: ""
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { cpu: 500m, memory: 256Mi }

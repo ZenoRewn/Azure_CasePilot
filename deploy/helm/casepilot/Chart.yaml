@@ -1,0 +1,5 @@
+apiVersion: v2
+name: casepilot
+description: Azure CasePilot server (Web UI + MCP) with AKS Workload Identity
+version: 2.0.0
+appVersion: "2.0.0"

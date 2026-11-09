@@ -18,10 +18,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-HOST = "127.0.0.1"
-PORT = int(os.environ.get("CASEPILOT_PORT", "8765"))
 SUPPORT_API = "2024-04-01"
-SESSION_TOKEN = secrets.token_urlsafe(24)
 # 从 Finder 启动 .app 时 PATH 很精简, 补上 az 常见安装位置
 os.environ["PATH"] = os.pathsep.join([os.environ.get("PATH", ""), "/opt/homebrew/bin", "/usr/local/bin"])
 # PyInstaller 打包后资源位于 sys._MEIPASS
@@ -466,12 +463,16 @@ def close_ticket(tenant, sub, name):
     raise ApiError(409, f"关闭请求已发送, 但 Case 当前状态仍为 {status}, 请稍后重试")
 
 
-def add_communication(tenant, sub, name, subject, body):
+def add_communication(tenant, sub, name, subject, body, sender=None):
+    """sender: 服务主体 / 托管标识调用时必须提供 (无用户邮箱上下文), 用户身份调用时可省略。"""
     if not (body or "").strip():
         raise ApiError(400, "内容不能为空")
     cname = "cp-" + uuid.uuid4().hex[:12]
     url = f"{support_base(sub)}/supportTickets/{urllib.parse.quote(name)}/communications/{cname}?api-version={SUPPORT_API}"
-    arm("PUT", url, tenant, {"properties": {"subject": (subject or "Update")[:200], "body": body}})
+    props = {"subject": (subject or "Update")[:200], "body": body}
+    if sender:
+        props["sender"] = sender
+    arm("PUT", url, tenant, {"properties": props})
     return {"name": cname}
 
 

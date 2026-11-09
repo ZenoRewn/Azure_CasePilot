@@ -84,6 +84,11 @@ class ConfigTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             server.Config.from_env({"CASEPILOT_MODE": "server"})
 
+    def test_ignores_k8s_service_link_env(self):
+        # K8s 为名为 casepilot 的 Service 注入 CASEPILOT_PORT=tcp://10.0.0.1:80
+        c = server.Config.from_env({"CASEPILOT_MODE": "server", "CASEPILOT_API_KEY": "x" * 32, "CASEPILOT_PORT": "tcp://10.0.0.1:80"})
+        self.assertEqual(c.port, 8080)
+
     def test_env(self):
         c = server.Config.from_env({"CASEPILOT_MODE": "server", "CASEPILOT_API_KEY": "x" * 32, "CASEPILOT_PORT": "9000"})
         self.assertEqual((c.mode, c.host, c.port), ("server", "0.0.0.0", 9000))

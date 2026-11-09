@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}
+  annotations:
+    azure.workload.identity/client-id: {{ required "workloadIdentity.clientId" .Values.workloadIdentity.clientId | quote }}
+    azure.workload.identity/tenant-id: {{ required "workloadIdentity.tenantId" .Values.workloadIdentity.tenantId | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels: { app: {{ .Release.Name }} }
+spec:
+  replicas: {{ .Values.replicas }}
+  selector: { matchLabels: { app: {{ .Release.Name }} } }
+  template:
+    metadata:
+      labels: { app: {{ .Release.Name }}, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: casepilot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports: [{ containerPort: 8080, name: http }]
+          env:
+            - { name: CASEPILOT_MODE, value: server }
+            - { name: CASEPILOT_TENANT_ID, value: {{ .Values.workloadIdentity.tenantId | quote }} }
+            - { name: CASEPILOT_SUBSCRIPTION_ID, value: {{ .Values.casepilot.subscriptionId | quote }} }
+            - { name: CASEPILOT_TRUST_PROXY_AUTH, value: {{ ternary "1" "0" .Values.casepilot.trustProxyAuth | quote }} }
+            - { name: CASEPILOT_AOAI_ENDPOINT, value: {{ .Values.casepilot.ai.endpoint | quote }} }
+            - { name: CASEPILOT_AOAI_DEPLOYMENT, value: {{ .Values.casepilot.ai.deployment | quote }} }
+            - { name: CASEPILOT_STT_ENDPOINT, value: {{ .Values.casepilot.ai.sttEndpoint | quote }} }
+            - { name: CASEPILOT_STT_DEPLOYMENT, value: {{ .Values.casepilot.ai.sttDeployment | quote }} }
+            - name: CASEPILOT_API_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.casepilot.apiKeySecret }}, key: api-key } }
+          readinessProbe: { httpGet: { path: /readyz, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 30 }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: {{ .Release.Name }} }
+spec:
+  type: {{ .Values.service.type }}
+  selector: { app: {{ .Release.Name }} }
+  ports: [{ port: {{ .Values.service.port }}, targetPort: http, name: http }]
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: {{ .Release.Name }} }
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: {{ .Release.Name }}, port: { name: http } } } }] }
+{{- end }}

@@ -84,7 +84,8 @@ class Server:
         if name == "add_case_message":
             self._confirm(a)
             body = a["message"].replace("&", "&amp;").replace("<", "&lt;").replace("\n", "<br>")
-            return core.add_communication(t, sub, a["name"], "客户补充信息 / Update from customer", body)
+            sender = core.ticket_detail(t, sub, a["name"]).get("properties", {}).get("contactDetails", {}).get("primaryEmailAddress")
+            return core.add_communication(t, sub, a["name"], "客户补充信息 / Update from customer", body, sender=sender)
         if name == "close_case":
             self._confirm(a)
             return core.close_ticket(t, sub, a["name"])
