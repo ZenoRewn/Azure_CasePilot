@@ -2,6 +2,7 @@
 import base64
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
@@ -21,12 +22,18 @@ def _post(cfg, url, data, ctype):
         headers["api-key"] = cfg.api_key
     else:
         headers["Authorization"] = "Bearer " + core.AUTH.token(resource=providers.COGNITIVE_SCOPE)
-    try:
-        with urllib.request.urlopen(urllib.request.Request(url, data, headers), timeout=90, context=core.SSL_CTX) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        err = core._safe_json(e.read()).get("error", {})
-        raise core.ApiError(502, f"AI 服务错误 {e.code}: {err.get('code', '')} {err.get('message', '')}".strip())
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, data, headers), timeout=90, context=core.SSL_CTX) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            # 429: 按 Retry-After 退避重试 (共 3 次), 低配额部署下也能用
+            if e.code == 429 and attempt < 2:
+                time.sleep(min(int(e.headers.get("Retry-After") or 3), 15))
+                continue
+            err = core._safe_json(e.read()).get("error", {})
+            hint = " (配额不足, 可在设置中换用其他部署/区域)" if e.code == 429 else ""
+            raise core.ApiError(502, f"AI 服务错误 {e.code}: {err.get('code', '')} {err.get('message', '')}".strip() + hint)
 
 
 def chat(cfg, messages, schema):

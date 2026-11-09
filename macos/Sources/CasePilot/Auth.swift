@@ -86,7 +86,7 @@ actor AuthProvider {
                 let claims = Self.jwtClaims(j["id_token"] as? String ?? j["access_token"] as? String ?? "")
                 let tid = claims["tid"] as? String ?? ""
                 mode = .device; refreshToken = j["refresh_token"] as? String; homeTenant = tid
-                cache = [tid: (j["access_token"] as? String ?? "", Date().addingTimeInterval(Double(j["expires_in"] as? Int ?? 3600)))]
+                cache = [tid + "|" + cloud.arm: (j["access_token"] as? String ?? "", Date().addingTimeInterval(Double(j["expires_in"] as? Int ?? 3600)))]
                 let user = claims["preferred_username"] as? String ?? claims["upn"] as? String ?? "-"
                 return Identity(user: user, tenant: tid, cloud: cloud, method: "浏览器登录")
             } catch let e as AppError where e.message.contains("authorization_pending") || e.message.contains("slow_down") {
@@ -110,8 +110,12 @@ actor AuthProvider {
 
     // MARK: 令牌
 
-    func token(tenant: String?) async throws -> String {
-        let key = tenant ?? "_"
+    static let cognitive = "https://cognitiveservices.azure.com"
+
+    /// resource 默认 ARM; AI / 语音使用 cognitiveservices
+    func token(tenant: String?, resource: String? = nil) async throws -> String {
+        let res = resource ?? cloud.arm
+        let key = (tenant ?? "_") + "|" + res
         if let (t, exp) = cache[key], exp.timeIntervalSinceNow > 300 { return t }
         let (t, exp): (String, Date)
         switch mode {
@@ -122,11 +126,11 @@ actor AuthProvider {
             let j: [String: Any]
             do {
                 j = try await Self.postForm("\(cloud.login)/\(sp.tenant)/oauth2/v2.0/token", [
-                    "grant_type": "client_credentials", "client_id": sp.clientId, "client_secret": sp.secret, "scope": "\(cloud.arm)/.default"])
+                    "grant_type": "client_credentials", "client_id": sp.clientId, "client_secret": sp.secret, "scope": "\(res)/.default"])
             } catch { throw AppError(message: "App Registration 获取令牌失败\n\(error.localizedDescription)") }
             (t, exp) = (j["access_token"] as? String ?? "", Date().addingTimeInterval(Double(j["expires_in"] as? Int ?? 3600)))
         case .cli:
-            var args = ["account", "get-access-token", "--resource", cloud.arm + "/"]
+            var args = ["account", "get-access-token", "--resource", res + "/"]
             if let tenant { args += ["--tenant", tenant] }
             let j = try await Self.runAz(args) as? [String: Any] ?? [:]
             let e = (j["expires_on"] as? Double) ?? (j["expires_on"] as? Int).map(Double.init) ?? Date().addingTimeInterval(1800).timeIntervalSince1970
@@ -137,7 +141,7 @@ actor AuthProvider {
             do {
                 j = try await Self.postForm("\(cloud.login)/\(tid)/oauth2/v2.0/token", [
                     "grant_type": "refresh_token", "client_id": Self.deviceClientId, "refresh_token": refreshToken ?? "",
-                    "scope": "\(cloud.arm)/user_impersonation offline_access"])
+                    "scope": "\(res)/user_impersonation offline_access"])
             } catch { throw AppError(message: "无法获取租户 \(tid) 的令牌 (可能需要 MFA 或未加入该租户)\n\(error.localizedDescription)") }
             if let r = j["refresh_token"] as? String { refreshToken = r }
             (t, exp) = (j["access_token"] as? String ?? "", Date().addingTimeInterval(Double(j["expires_in"] as? Int ?? 3600)))

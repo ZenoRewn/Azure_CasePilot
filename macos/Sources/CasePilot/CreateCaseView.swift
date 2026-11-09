@@ -24,6 +24,7 @@ struct CreateCaseView: View {
 
     var body: some View {
         Form {
+            AIComposer { d in await applyDraft(d) }
             Section {
                 LabeledContent("服务") {
                     HStack {
@@ -61,7 +62,12 @@ struct CreateCaseView: View {
                 .pickerStyle(.segmented)
                 .onChange(of: draft.severity) { _, s in draft.require24x7 = s.isHigh }
             } footer: {
-                Text(draft.severity.detail + (store.supportPlan.map { " · 当前支持计划: \($0)" } ?? "")).foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(draft.severity.detail)
+                    if draft.severity.isHigh && store.plan.allowsCritical == false {
+                        Label("当前支持计划不支持该级别", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    }
+                }.foregroundStyle(.secondary)
             }
 
             if isVMQuota {
@@ -76,6 +82,7 @@ struct CreateCaseView: View {
                 TextField("标题", text: $draft.title, prompt: Text("一句话说明问题"))
                     .onChange(of: draft.title) { _, v in if v.count > 200 { draft.title = String(v.prefix(200)) } }
                 TextEditor(text: $draft.description)
+                    .overlay(alignment: .bottomTrailing) { MicButton(text: $draft.description).padding(6) }
                     .font(.body).frame(minHeight: 200)
                     .overlay(alignment: .topLeading) {
                         if draft.description.isEmpty {
@@ -186,8 +193,8 @@ struct CreateCaseView: View {
     }
     private var confirmText: String {
         var t = "标题: \(draft.title)\n服务: \(draft.service?.displayName ?? "")\n严重性: \(draft.severity.level) · \(draft.severity.title)\n联系人: \(draft.contact.lastName)\(draft.contact.firstName) · \(draft.contact.email)"
-        if draft.severity.isHigh, let p = store.supportPlan, p.range(of: "basic|developer", options: [.regularExpression, .caseInsensitive]) != nil {
-            t += "\n\n⚠️ 当前支持计划 (\(p)) 可能不支持该级别。"
+        if draft.severity.isHigh, store.plan.allowsCritical == false {
+            t += "\n\n⚠️ 当前支持计划 (\(store.plan.name ?? "")) 不支持该级别, 提交可能被拒绝。"
         }
         return t
     }
@@ -236,6 +243,13 @@ struct CreateCaseView: View {
         draft.description = ["【现象】", "", "【业务影响】(影响用户/请求量, 是否生产环境)", "", "【首次发生时间 (含时区) / 是否持续】", "",
                              "【复现步骤】", "1. ", "", "【错误信息 / Request ID / Correlation ID】", "", "【近期变更】", "", "【已尝试的排查】", ""]
             .joined(separator: "\n")
+    }
+
+    private func applyDraft(_ d: AIDraft) async {
+        if let s = d.service { await pick(s) }
+        if let p = d.problem { draft.problem = problems.first { $0.id == p.id } ?? p }
+        draft.severity = d.severity; draft.require24x7 = d.severity.isHigh
+        draft.title = d.title; draft.description = d.description
     }
 
     private func reuse(_ r: RecentProblem) async {

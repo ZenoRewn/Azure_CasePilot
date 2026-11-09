@@ -132,7 +132,8 @@ struct TicketDetailView: View {
             if t.isOpen && detail != nil {
                 Divider()
                 VStack(alignment: .trailing, spacing: 8) {
-                    TextEditor(text: $reply).font(.callout).frame(height: 70).scrollContentBackground(.hidden).padding(6)
+                    TextEditor(text: $reply).font(.callout).frame(height: 70)
+                        .overlay(alignment: .bottomTrailing) { MicButton(text: $reply).padding(6) }.scrollContentBackground(.hidden).padding(6)
                         .background(.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(alignment: .topLeading) { if reply.isEmpty { Text("补充信息给支持工程师, 将以邮件形式发送…").foregroundStyle(.tertiary).padding(11).allowsHitTesting(false) } }
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.separator))
@@ -216,7 +217,8 @@ struct TicketDetailView: View {
         guard let tenant = store.tenantId else { return }
         sending = true; defer { sending = false }
         do {
-            try await store.client.reply(t.id, text: reply, tenant: tenant, sub: store.sub)
+            let sender = store.identity?.method == "App Registration" ? (detail?.props["contactDetails"] as? [String: Any])?["primaryEmailAddress"] as? String : nil
+            try await store.client.reply(t.id, text: reply, tenant: tenant, sub: store.sub, sender: sender)
             reply = ""; flash("补充信息已发送"); tab = 1
             try? await Task.sleep(for: .seconds(2))
             await load()

@@ -30,6 +30,29 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(c.chat_deployment, "gpt-6-sol")
         self.assertFalse(hasattr(c, "evil"))
 
+    def test_post_retries_on_429_using_retry_after(self):
+        import io, urllib.error
+        calls, sleeps = [], []
+        def fake_open(req, timeout, context):
+            calls.append(1)
+            if len(calls) < 3:
+                raise urllib.error.HTTPError("u", 429, "busy", {"Retry-After": "2"}, io.BytesIO(b'{"error":{"code":"rate_limit_exceeded"}}'))
+            return io.BytesIO(b'{"ok": 1}')
+        cfg = service.ai_config({"ai": {"api_key": "k"}})
+        with mock.patch.object(service.urllib.request, "urlopen", fake_open), mock.patch.object(service.time, "sleep", sleeps.append):
+            self.assertEqual(service._post(cfg, "https://x", b"{}", "application/json"), {"ok": 1})
+        self.assertEqual(sleeps, [2, 2])
+
+    def test_post_gives_up_after_retries(self):
+        import io, urllib.error
+        def fake_open(req, timeout, context):
+            raise urllib.error.HTTPError("u", 429, "busy", {}, io.BytesIO(b"{}"))
+        cfg = service.ai_config({"ai": {"api_key": "k"}})
+        with mock.patch.object(service.urllib.request, "urlopen", fake_open), mock.patch.object(service.time, "sleep", lambda s: None):
+            with self.assertRaises(service.core.ApiError) as e:
+                service._post(cfg, "https://x", b"{}", "application/json")
+        self.assertIn("429", e.exception.message)
+
     def test_transcribe_rejects_large_audio(self):
         with self.assertRaises(service.core.ApiError):
             service.transcribe({"audio": "A" * (service.MAX_AUDIO_B64 + 1)})

@@ -24,6 +24,65 @@ struct ContactSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 560)
+        .frame(width: 520, height: 560)
+    }
+}
+
+struct AISettingsView: View {
+    @State private var c = AIConfig.load()
+    var body: some View {
+        Form {
+            Section {
+                TextField("Endpoint", text: $c.chatEndpoint)
+                TextField("部署名", text: $c.chatDeployment)
+            } header: { Text("AI 帮写 (Azure OpenAI / Foundry)") } footer: {
+                Text("使用当前登录身份调用, 需在该资源上具备 Cognitive Services OpenAI User 角色。默认 westus3 · gpt-6-luna。").foregroundStyle(.secondary)
+            }
+            Section("语音输入") {
+                Picker("转写服务", selection: $c.sttProvider) { ForEach(STTProvider.allCases) { Text($0.label).tag($0) } }
+                TextField("Endpoint", text: $c.sttEndpoint)
+                if c.sttProvider == .azureOpenAI { TextField("部署名", text: $c.sttDeployment) }
+                TextField("语言", text: $c.sttLanguage)
+            }
+            Section { Button("恢复默认") { c = AIConfig() } }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520, height: 560)
+        .onChange(of: c) { _, v in v.save() }
+    }
+}
+
+/// 为 Claude Desktop / VS Code 等 MCP 客户端提供配置片段 (本机 stdio, 复用 Azure CLI 登录)
+struct MCPSettingsView: View {
+    @Environment(AppStore.self) private var store
+    private var snippet: String {
+        let sub = store.subscriptionId
+        return """
+        {
+          "mcpServers": {
+            "casepilot": {
+              "command": "python3",
+              "args": ["-m", "casepilot.mcp"],
+              "cwd": "<Azure_CasePilot 仓库路径>",
+              "env": { "CASEPILOT_SUBSCRIPTION_ID": "\(sub)" }
+            }
+          }
+        }
+        """
+    }
+    var body: some View {
+        Form {
+            Section {
+                Text(snippet).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                Button("复制配置") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(snippet, forType: .string) }
+            } header: { Text("本机 MCP (stdio)") } footer: {
+                Text("复用 Azure CLI 登录。写操作 (创建 / 补充 / 关闭) 需客户端在用户确认后传 confirm=true。").foregroundStyle(.secondary)
+            }
+            Section("服务器 MCP (AKS)") {
+                Text("POST https://<你的域名>/mcp\nAuthorization: Bearer <CASEPILOT_API_KEY>").font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520, height: 560)
     }
 }

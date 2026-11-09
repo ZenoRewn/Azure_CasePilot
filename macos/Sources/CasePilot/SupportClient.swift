@@ -63,6 +63,11 @@ struct SupportClient {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    /// 订阅 quotaId (用于推断支持计划)
+    func quotaId(tenant: String, sub: String) async throws -> String {
+        ((try await get("/subscriptions/\(sub)?api-version=2022-12-01", tenant: tenant))["subscriptionPolicies"] as? [String: Any])?["quotaId"] as? String ?? ""
+    }
+
     // MARK: 服务目录
 
     func services(tenant: String) async throws -> [SupportService] {
@@ -155,12 +160,12 @@ struct SupportClient {
                             }.sorted { ($0.created ?? .distantPast) > ($1.created ?? .distantPast) })
     }
 
-    func reply(_ name: String, text: String, tenant: String, sub: String?) async throws {
+    func reply(_ name: String, text: String, tenant: String, sub: String?, sender: String? = nil) async throws {
         let html = text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\n", with: "<br>")
         let cname = "cp-" + UUID().uuidString.lowercased().prefix(12)
         _ = try await request("PUT", "\(Self.base(sub))/supportTickets/\(name)/communications/\(cname)?\(v)", tenant: tenant,
-                              body: ["properties": ["subject": "客户补充信息 / Update from customer", "body": html]])
+                              body: ["properties": ["subject": "客户补充信息 / Update from customer", "body": html].merging(sender.map { ["sender": $0] } ?? [:]) { a, _ in a }])
     }
 
     /// 关闭后回读确认: PATCH 成功不代表状态已生效

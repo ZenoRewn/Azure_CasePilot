@@ -109,6 +109,22 @@ class ShortlistTest(unittest.TestCase):
         self.assertLess(len(chat.calls[0]["messages"][1]["content"]), 4000)
 
 
+class ProblemShortlistTest(unittest.TestCase):
+    def test_caps_problem_catalog_and_keeps_keyword_hits(self):
+        many = [{"id": f"/p/{i}", "displayName": f"Category {i} / Item {i}"} for i in range(200)]
+        many.append({"id": "/p/ssh", "displayName": "Cannot connect to my VM / Failure to connect using RDP or SSH port"})
+        short = ai.problem_shortlist("Linux VM SSH 连接失败", many, limit=40)
+        self.assertLessEqual(len(short), 40)
+        self.assertEqual(short[0]["id"], "/p/ssh")
+
+    def test_draft_problem_prompt_is_small(self):
+        many = [{"id": f"/p/{i}", "displayName": f"Category {i} / Item {i} with a fairly long description"} for i in range(200)]
+        chat = fake_chat({"service": "svc-vm", "severity": "moderate", "title": "SSH 失败", "description": "d", "questions": []},
+                         {"problemId": "/p/1"})
+        ai.draft_case("ssh", [], SERVICES, lambda s: many, chat)
+        self.assertLess(len(chat.calls[1]["messages"][1]["content"]), 6000)
+
+
 class SchemaTest(unittest.TestCase):
     def test_service_schema_is_strict(self):
         s = ai.SERVICE_SCHEMA

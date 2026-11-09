@@ -24,9 +24,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${NUM}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSMicrophoneUsageDescription</key><string>用于语音输入问题描述与补充信息 (经 Azure Speech / Azure OpenAI 转写)。</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
 </dict></plist>
 PLIST
-codesign --force --deep --sign - "$APP"
+codesign --force --deep --sign "${SIGN_ID:-Apple Development: zeno.ren@me.com (W96G7VCMTX)}" "$APP" 2>/dev/null || codesign --force --deep --sign - "$APP"
 (cd dist && ditto -c -k --keepParent CasePilot.app "CasePilot-${VER}-macOS-universal.zip")
 echo "dist/CasePilot-${VER}-macOS-universal.zip"

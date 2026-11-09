@@ -22,7 +22,12 @@ struct CasePilotApp: App {
             }
         }
         Settings {
-            ContactSettingsView().environment(store).preferredColorScheme(.light)
+            TabView {
+                ContactSettingsView().tabItem { Label("联系人", systemImage: "person.crop.circle") }
+                AISettingsView().tabItem { Label("AI 与语音", systemImage: "sparkles") }
+                MCPSettingsView().tabItem { Label("MCP", systemImage: "point.3.connected.trianglepath.dotted") }
+            }
+            .environment(store).preferredColorScheme(.light)
         }
     }
 }
@@ -98,7 +103,8 @@ struct Sidebar: View {
                             .overlay(Text(String(id.user.prefix(1)).uppercased()).font(.callout.weight(.semibold)).foregroundStyle(Color.accentColor))
                         VStack(alignment: .leading, spacing: 1) {
                             Text(id.user).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
-                            Text(id.method).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(id.method + (store.plan.name.map { " · \($0)" } ?? "")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                .help(store.plan.name.map { "支持计划: \($0) (\(store.plan.sourceLabel))" } ?? "支持计划未知")
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)

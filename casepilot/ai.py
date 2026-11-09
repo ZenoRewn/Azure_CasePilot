@@ -63,6 +63,20 @@ def shortlist(text, services, limit=60):
     return out[:limit]
 
 
+def _tokens(text):
+    import re
+    t = text.lower()
+    words = {w for w in re.findall(r"[a-z0-9][a-z0-9.+-]{1,}", t) if len(w) > 1}
+    return words | {v for k, v in SYNONYMS.items() if k in t} | {k for k in SYNONYMS if k in t}
+
+
+def problem_shortlist(text, problems, limit=40):
+    """问题类型可达 200 项 (约 10k token): 按与描述的词重叠排序后截断。"""
+    keys = _tokens(text)
+    score = lambda p: -sum(1 for k in keys if k in p["displayName"].lower())  # noqa: E731
+    return sorted(problems, key=score)[:limit]
+
+
 def _catalog(services):
     return "\n".join(f"{s['name']}\t{s['displayName']}" for s in services)
 
@@ -78,10 +92,11 @@ def draft_case(text, answers, services, problems_of, chat):
     problem = None
     if svc:
         problems = problems_of(svc)
+        cands = problem_shortlist(f"{text} {qa} {r.get('title', '')} {r.get('description', '')}", problems)
         p = chat([
             {"role": "system", "content": "从问题类型目录中选出最匹配的一项, 返回其 id。"},
             {"role": "user", "content": f"工单: {r.get('title')}\n{r.get('description')}\n\n问题类型目录 (id\\tdisplayName):\n"
-                                        + "\n".join(f"{x['id']}\t{x['displayName']}" for x in problems)},
+                                        + "\n".join(f"{x['id']}\t{x['displayName']}" for x in cands)},
         ], PROBLEM_SCHEMA)
         pid = (p.get("problemId") or "").strip().lower()
         problem = next((x for x in problems if pid in (x["id"].lower(), x["displayName"].lower())), None)

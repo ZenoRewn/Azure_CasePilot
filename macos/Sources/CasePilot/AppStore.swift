@@ -13,7 +13,9 @@ final class AppStore {
     var tenantId: String? { didSet { if tenantId != oldValue { Task { await onTenant() } } } }
     var subscriptionId: String = "" { didSet { if subscriptionId != oldValue { Task { await onSubscription() } } } }
     var services: [SupportService] = []
-    var supportPlan: String?
+    var plan = SupportPlan(name: nil, tier: "unknown", source: "none", allowsCritical: nil)
+    var supportPlan: String? { plan.name }
+    var ai: AIClient { AIClient(auth: auth) }
 
     // 历史
     var tickets: [TicketSummary] = []
@@ -58,7 +60,7 @@ final class AppStore {
     func logout(switchTo method: String? = nil) async {
         autoLogin = false; requestedLogin = method
         await auth.logout()
-        identity = nil; tenants = []; subscriptions = []; tickets = []; services = []; supportPlan = nil
+        identity = nil; tenants = []; subscriptions = []; tickets = []; services = []; plan = SupportPlan(name: nil, tier: "unknown", source: "none", allowsCritical: nil)
     }
 
     private func afterLogin() async {
@@ -96,10 +98,10 @@ final class AppStore {
         defer { loadingTickets = false }
         do {
             tickets = try await client.tickets(tenant: t, sub: sub, days: historyDays)
-            // 无直接查询支持计划的 API: 取最近 Case 的 supportPlanType 推断
-            if let p = tickets.compactMap(\.plan).first { supportPlan = p }
-            else if historyDays < 365, let p = try? await client.tickets(tenant: t, sub: sub, days: 365).compactMap(\.plan).first { supportPlan = p }
-            else { supportPlan = nil }
+            // 无公开 API 查询支持计划: 综合最近一年 Case 与订阅类型推断, 并标注来源
+            let year = historyDays >= 365 ? tickets : ((try? await client.tickets(tenant: t, sub: sub, days: 365)) ?? tickets)
+            let quota = sub == nil ? "" : ((try? await client.quotaId(tenant: t, sub: sub!)) ?? "")
+            plan = SupportPlan.infer(tickets: year, quotaId: quota)
         } catch { banner = "加载 Case 失败: \(error.localizedDescription)" }
     }
 

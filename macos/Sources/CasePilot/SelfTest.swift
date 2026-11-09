@@ -7,6 +7,7 @@ enum SelfTest {
         let env = ProcessInfo.processInfo.environment
         if let dir = env["CASEPILOT_SNAPSHOT"] { Task { await snapshot(dir: dir, live: env["CASEPILOT_SELFTEST"] == "1"); exit(0) } }
         else if env["CASEPILOT_SELFTEST"] == "1" { Task { await e2e(); exit(0) } }
+        else if env["CASEPILOT_AI_TEST"] == "1" { Task { await aiTest(); exit(0) } }
         else if env["CASEPILOT_MENU_TEST"] == "1" { Task { await menuTest(); exit(0) } }
         else if env["CASEPILOT_SWITCH_TEST"] == "1" { Task { await switchTest(); exit(0) } }
         else if let f = env["CASEPILOT_SP_TEST"] { Task { await spTest(f); exit(0) } }
@@ -92,6 +93,29 @@ enum SelfTest {
         print("[menu] opened=\(opened) hit=\(String(describing: v.hitTest(p).map { type(of: $0) }))"); fflush(stdout)
     }
 
+    @MainActor static func aiTest() async {
+        let store = AppStore()
+        func log(_ s: String) { print("[ai] " + s); fflush(stdout) }
+        do {
+            try await store.loginCLI()
+            for _ in 0..<60 where store.services.isEmpty || store.subscriptionId.isEmpty { try await Task.sleep(for: .milliseconds(300)) }
+            try await Task.sleep(for: .seconds(3))
+            await store.loadTickets()
+            log("sub=\(store.sub ?? "nil") tickets=\(store.tickets.count) plans=\(store.tickets.compactMap(\.plan).prefix(2)) banner=\(store.banner ?? "-")")
+            log("plan=\(store.plan.name ?? "-") src=\(store.plan.source) critical=\(String(describing: store.plan.allowsCritical))")
+            let t = store.tenantId!, ai = store.ai, client = store.client
+            let d = try await AIDrafter.draft(text: "我的 linux 虚拟机 Hermes-VM 今天早上开始 ssh 连不上, 生产环境", answers: [], services: store.services,
+                                              problems: { try await client.problems(tenant: t, service: $0) },
+                                              chat: { m, sc in log("prompt chars=\(m.map { $0["content"]!.count }.reduce(0, +))"); return try await ai.chat(m, schema: sc) })
+            log("draft svc=\(d.service?.displayName ?? "nil") pb=\(d.problem?.displayName ?? "nil") sev=\(d.severity.rawValue) q=\(d.questions.count) title=\(d.title)")
+            let audio = try Data(contentsOf: URL(fileURLWithPath: "/tmp/v.m4a"))
+            log("stt aoai=\(try await ai.transcribe(audio))")
+            var c = AIConfig(); c.sttProvider = .azureSpeech; c.sttEndpoint = "https://southeastasia-azureai-service-507154.cognitiveservices.azure.com"; c.save()
+            log("stt speech=\(try await ai.transcribe(audio))")
+            AIConfig().save()
+        } catch { log("ERROR \(error.localizedDescription)") }
+    }
+
     @MainActor static func switchTest() async {
         let store = AppStore()
         func log(_ s: String) { print("[switch] " + s); fflush(stdout) }
@@ -105,7 +129,9 @@ enum SelfTest {
             }
             await store.logout(switchTo: "浏览器"); log("requested=\(store.requestedLogin ?? "-")")
             try await store.loginCLI(); await ready(); log("back cli \(store.identity!.method)")
+            let keep = store.subscriptionId
             store.subscriptionId = ""; try await Task.sleep(for: .seconds(3)); log("tenant-level tickets=\(store.tickets.count)")
+            store.subscriptionId = keep
             let svc = store.services.first { $0.displayName == "Azure OpenAI" }!
             let pb = try await store.client.problems(tenant: store.tenantId!, service: svc)[0]
             store.remember(service: svc, problem: pb)
