@@ -136,60 +136,76 @@ class Auth:
         with self.lock:
             self.mode, self.cloud, self.sp, self.cache = "device", d["cloud"], None, {}
             self.device = {"refresh_token": data["refresh_token"], "home": claims.get("tid")}
-            self.cache[claims.get("tid") or "_default"] = (data["access_token"], time.time() + int(data.get("expires_in", 3600)))
+            self.cache[(claims.get("tid") or "_default", self.arm)] = (data["access_token"], time.time() + int(data.get("expires_in", 3600)))
         return {"pending": False, "user": claims.get("preferred_username") or claims.get("upn"),
                 "tenant": claims.get("tid"), "cloud": self.cloud}
 
-    def token(self, tenant=None):
+    def token(self, tenant=None, resource=None):
+        """resource 默认 ARM; 亦可为 https://cognitiveservices.azure.com (AI / 语音)。"""
         if not self.mode:
             raise ApiError(401, "尚未认证")
+        resource = (resource or self.arm).rstrip("/")
         if self.mode == "sp":
             if tenant and tenant != self.sp["tenant"]:
                 raise ApiError(400, "App Registration 仅能访问其所在租户 (除非为多租户应用并已在目标租户授权)")
             tenant = self.sp["tenant"]
-        key = tenant or "_default"
+        key = (tenant or "_default", resource)
         cached = self.cache.get(key)
         if cached and cached[1] - 300 > time.time():
             return cached[0]
         if self.mode == "cli":
-            tok, exp = self._cli_token(tenant)
+            tok, exp = self._cli_token(tenant, resource)
         elif self.mode == "device":
-            tok, exp = self._refresh_token(tenant or self.device["home"])
+            tok, exp = self._refresh_token(tenant or self.device["home"], resource)
+        elif self.mode == "workload":
+            tok, exp = self._workload_token(resource)
         else:
-            tok, exp = self._sp_token()
+            tok, exp = self._sp_token(resource)
         self.cache[key] = (tok, exp)
         return tok
 
-    def _cli_token(self, tenant):
-        args = ["account", "get-access-token", "--resource", self.arm + "/"]
+    def _cli_token(self, tenant, resource):
+        args = ["account", "get-access-token", "--resource", resource + "/"]
         if tenant:
             args += ["--tenant", tenant]
         data = _run_az(args, hint_tenant=tenant)
         exp = data.get("expires_on") or time.time() + 1800
         return data["accessToken"], float(exp)
 
-    def _sp_token(self):
+    def _sp_token(self, resource):
         sp = self.sp
         url = f"{CLOUDS[self.cloud]['login']}/{sp['tenant']}/oauth2/v2.0/token"
-        body = urllib.parse.urlencode({
-            "grant_type": "client_credentials", "client_id": sp["client_id"],
-            "client_secret": sp["secret"], "scope": self.arm + "/.default",
-        }).encode()
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, body), timeout=30, context=SSL_CTX) as r:
-                data = json.load(r)
-        except urllib.error.HTTPError as e:
-            err = _safe_json(e.read())
-            raise ApiError(401, "App Registration 获取令牌失败: " + str(err.get("error_description", err))[:400])
+            data = _post_form(url, {"grant_type": "client_credentials", "client_id": sp["client_id"],
+                                    "client_secret": sp["secret"], "scope": resource + "/.default"})
+        except ApiError as e:
+            raise ApiError(401, "App Registration 获取令牌失败: " + e.message)
         return data["access_token"], time.time() + int(data.get("expires_in", 3600))
 
+    def _workload_token(self, resource):
+        """AKS Workload Identity: 用投射的联邦令牌换取 Entra 令牌。"""
+        assertion = Path(os.environ["AZURE_FEDERATED_TOKEN_FILE"]).read_text().strip()
+        url = f"{os.environ.get('AZURE_AUTHORITY_HOST', CLOUDS[self.cloud]['login'] + '/').rstrip('/')}/{os.environ['AZURE_TENANT_ID']}/oauth2/v2.0/token"
+        data = _post_form(url, {"grant_type": "client_credentials", "client_id": os.environ["AZURE_CLIENT_ID"],
+                                "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                                "client_assertion": assertion, "scope": resource + "/.default"})
+        return data["access_token"], time.time() + int(data.get("expires_in", 3600))
 
-    def _refresh_token(self, tenant):
+    def use_workload(self):
+        for k in ("AZURE_FEDERATED_TOKEN_FILE", "AZURE_CLIENT_ID", "AZURE_TENANT_ID"):
+            if not os.environ.get(k):
+                raise ApiError(400, f"未检测到 Workload Identity 环境变量 {k}")
+        with self.lock:
+            self.mode, self.sp, self.cache = "workload", None, {}
+        self.token()
+        return {"user": "workload:" + os.environ["AZURE_CLIENT_ID"][:8], "tenant": os.environ["AZURE_TENANT_ID"], "cloud": self.cloud}
+
+    def _refresh_token(self, tenant, resource):
         url = f"{CLOUDS[self.cloud]['login']}/{tenant}/oauth2/v2.0/token"
         try:
             data = _post_form(url, {"grant_type": "refresh_token", "client_id": DEVICE_CLIENT_ID,
                                     "refresh_token": self.device["refresh_token"],
-                                    "scope": self.arm + "/user_impersonation offline_access"})
+                                    "scope": resource + "/user_impersonation offline_access"})
         except ApiError as e:
             raise ApiError(401, f"无法获取租户 {tenant} 的令牌 (可能需要 MFA 或未加入该租户)", e.message)
         if data.get("refresh_token"):

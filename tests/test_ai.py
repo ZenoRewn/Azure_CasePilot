@@ -34,6 +34,23 @@ class DraftTest(unittest.TestCase):
         self.assertEqual(d["questions"], [])
         self.assertTrue(d["ready"])
 
+    def test_accepts_display_name_as_service(self):
+        chat = fake_chat({"service": "Azure OpenAI", "severity": "moderate", "title": "t", "description": "d", "questions": []},
+                         {"problemId": "/p/ssh"})
+        self.assertEqual(ai.draft_case("x", [], SERVICES, lambda s: PROBLEMS, chat)["service"]["name"], "svc-aoai")
+
+    def test_accepts_problem_display_name(self):
+        chat = fake_chat({"service": "svc-vm", "severity": "moderate", "title": "t", "description": "d", "questions": []},
+                         {"problemId": "VM Performance / CPU high"})
+        self.assertEqual(ai.draft_case("x", [], SERVICES, lambda s: PROBLEMS, chat)["problem"]["id"], "/p/perf")
+
+    def test_no_more_questions_after_answer_round(self):
+        chat = fake_chat({"service": "svc-vm", "severity": "moderate", "title": "t", "description": "d", "questions": ["还有吗?"]},
+                         {"problemId": "/p/ssh"})
+        d = ai.draft_case("x", [{"q": "a", "a": "b"}], SERVICES, lambda s: PROBLEMS, chat)
+        self.assertEqual(d["questions"], [])
+        self.assertTrue(d["ready"])
+
     def test_rejects_hallucinated_service(self):
         chat = fake_chat({"service": "made-up", "severity": "moderate", "title": "t", "description": "d", "questions": []})
         d = ai.draft_case("x", [], SERVICES, lambda s: PROBLEMS, chat)
@@ -72,6 +89,24 @@ class DraftTest(unittest.TestCase):
         chat = fake_chat({"service": "svc-vm", "severity": "moderate", "title": "长" * 300, "description": "d", "questions": []},
                          {"problemId": "/p/ssh"})
         self.assertEqual(len(ai.draft_case("x", [], SERVICES, lambda s: PROBLEMS, chat)["title"]), 200)
+
+
+class ShortlistTest(unittest.TestCase):
+    def test_keyword_hits_and_popular_kept_and_capped(self):
+        many = [{"name": f"s{i}", "displayName": f"Service {i}"} for i in range(300)]
+        many += [{"name": "aoai", "displayName": "Azure OpenAI"}, {"name": "vm", "displayName": "Virtual Machine running Linux"}]
+        short = ai.shortlist("openai 部署 429", many, limit=40)
+        names = [s["name"] for s in short]
+        self.assertLessEqual(len(short), 40)
+        self.assertIn("aoai", names)
+        self.assertIn("vm", names)  # 常用服务始终保留
+
+    def test_draft_sends_only_shortlist(self):
+        many = [{"name": f"s{i}", "displayName": f"Service {i}"} for i in range(300)] + SERVICES
+        chat = fake_chat({"service": "svc-vm", "severity": "moderate", "title": "t", "description": "d", "questions": []},
+                         {"problemId": "/p/ssh"})
+        ai.draft_case("linux 虚拟机 ssh", [], many, lambda s: PROBLEMS, chat)
+        self.assertLess(len(chat.calls[0]["messages"][1]["content"]), 4000)
 
 
 class SchemaTest(unittest.TestCase):

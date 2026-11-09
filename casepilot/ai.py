@@ -37,8 +37,30 @@ SYSTEM = """你是 Azure 技术支持工单助手。根据用户描述起草一�
 - title: 一句话, 包含服务、区域/资源 (若已知) 与核心现象, 中文, 不超过 80 字。
 - description 使用以下结构, 只写用户提供或可直接推断的事实, 未知项写"待补充":
   【现象】【业务影响】【首次发生时间 (含时区)】【错误信息 / Request ID】【已尝试的排查】
-- questions: 仅当缺少会显著影响排查的关键信息时提问 (最多 3 个, 简短中文); 信息足够时返回空数组。
+- questions: 仅当缺少会显著影响排查的关键信息时提问 (最多 3 个, 简短中文, 合并相关项); 信息足够或已有补充问答时返回空数组。
 - 不要编造 Request ID、资源名或时间。"""
+
+
+POPULAR = ("Azure OpenAI", "Microsoft Foundry", "Foundry Tools", "Virtual Machine running Linux", "Virtual Machine running Windows",
+           "Kubernetes Service (AKS)", "App Service", "Storage Account Management", "Azure SQL Database",
+           "Service and subscription limits (quotas)", "Billing", "Subscription management")
+SYNONYMS = {"aoai": "openai", "gpt": "openai", "模型": "openai", "foundry": "foundry", "虚拟机": "virtual machine", "vm": "virtual machine",
+            "ssh": "virtual machine", "rdp": "virtual machine", "k8s": "kubernetes", "aks": "kubernetes", "存储": "storage",
+            "配额": "quota", "quota": "quota", "账单": "billing", "发票": "billing", "数据库": "sql", "网站": "app service", "web": "app service"}
+
+
+def shortlist(text, services, limit=60):
+    """控制 token: 只把关键词命中与常用服务发给模型 (完整目录 ~350 项会触发 TPM 限流)。"""
+    t = text.lower()
+    keys = {w for w in t.replace("/", " ").split() if len(w) > 2} | {v for k, v in SYNONYMS.items() if k in t}
+    hit = [s for s in services if any(k in s["displayName"].lower() for k in keys)]
+    pop = [s for s in services if s["displayName"] in POPULAR]
+    seen, out = set(), []
+    for s in hit + pop:
+        if s["name"] not in seen:
+            seen.add(s["name"])
+            out.append(s)
+    return out[:limit]
 
 
 def _catalog(services):
@@ -47,10 +69,12 @@ def _catalog(services):
 
 def draft_case(text, answers, services, problems_of, chat):
     qa = "\n".join(f"问: {x['q']}\n答: {x['a']}" for x in (answers or []))
-    user = f"用户描述:\n{text}\n\n" + (f"补充问答:\n{qa}\n\n" if qa else "") + f"服务目录 (name\\tdisplayName):\n{_catalog(services)}"
+    cands = shortlist(text + " " + qa, services)
+    user = f"用户描述:\n{text}\n\n" + (f"补充问答:\n{qa}\n\n" if qa else "") + f"服务目录 (name\\tdisplayName):\n{_catalog(cands)}"
     r = chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}], SERVICE_SCHEMA)
 
-    svc = next((s for s in services if s["name"] == r.get("service")), None)
+    pick = (r.get("service") or "").strip().lower()
+    svc = next((s for s in services if pick in (s["name"].lower(), s["displayName"].lower())), None)
     problem = None
     if svc:
         problems = problems_of(svc)
@@ -59,9 +83,11 @@ def draft_case(text, answers, services, problems_of, chat):
             {"role": "user", "content": f"工单: {r.get('title')}\n{r.get('description')}\n\n问题类型目录 (id\\tdisplayName):\n"
                                         + "\n".join(f"{x['id']}\t{x['displayName']}" for x in problems)},
         ], PROBLEM_SCHEMA)
-        problem = next((x for x in problems if x["id"] == p.get("problemId")), None)
+        pid = (p.get("problemId") or "").strip().lower()
+        problem = next((x for x in problems if pid in (x["id"].lower(), x["displayName"].lower())), None)
 
-    questions = [q.strip() for q in (r.get("questions") or []) if q.strip()][:MAX_QUESTIONS]
+    # 只追问一轮: 用户回答过后, 剩余未知项在描述中标注"待补充"即可, 不再阻塞提交
+    questions = [] if answers else [q.strip() for q in (r.get("questions") or []) if q.strip()][:MAX_QUESTIONS]
     sev = r.get("severity") if r.get("severity") in SEVERITIES else "moderate"
     return {
         "service": svc, "problem": problem, "severity": sev,
