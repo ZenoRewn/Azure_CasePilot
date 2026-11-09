@@ -27,6 +27,8 @@
   <symbol id="i-send" viewBox="0 0 24 24"><path fill="currentColor" d="M1.95 9.32c-.52-.17-.53-.45.01-.63L21.04 2.33c.53-.18.83.12.68.64l-5.45 19.08c-.15.53-.46.55-.68.05L12 13.5l6-8-8 6-8.05-2.18Z"/></symbol>
   <symbol id="i-external" viewBox="0 0 24 24"><path fill="currentColor" d="M10 6v2H5v11h11v-5h2v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6Zm11-3v8h-2V6.41l-7.79 7.8-1.42-1.42L17.59 5H13V3h8Z"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .55-.45 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3Zm2 0h7a1 1 0 0 1 1 1v9h2V4H9v2ZM5 8v12h10V8H5Z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path fill="currentColor" d="M14 4.44v-.05c0-.88 1.07-1.33 1.7-.71l.03.03a1 1 0 0 0 1.41 0l.04-.03c.62-.62 1.69-.18 1.69.7v.06a1 1 0 0 0 1 1h.05c.88 0 1.33 1.07.71 1.7l-.03.03a1 1 0 0 0 0 1.41l.03.04c.62.62.18 1.69-.7 1.69h-.06a1 1 0 0 0-1 1v.05c0 .88-1.07 1.33-1.7.71l-.03-.03a1 1 0 0 0-1.41 0l-.04.03c-.62.62-1.69.18-1.69-.7v-.06a1 1 0 0 0-1-1h-.05c-.88 0-1.33-1.07-.71-1.7l.03-.03a1 1 0 0 0 0-1.41l-.03-.04c-.62-.62-.18-1.69.7-1.69H13a1 1 0 0 0 1-1ZM6 13l1.1 2.9L10 17l-2.9 1.1L6 21l-1.1-2.9L2 17l2.9-1.1L6 13Z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1a5 5 0 0 1 5 5v4a5 5 0 0 1-10 0V6a5 5 0 0 1 5-5ZM3.06 11h2.02a7 7 0 0 0 13.84 0h2.02A9 9 0 0 1 13 18.94V23h-2v-4.06A9 9 0 0 1 3.06 11Z"/></symbol>
   <symbol id="i-box" viewBox="0 0 24 24"><path fill="currentColor" d="M3 10h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Zm6 2v2h6v-2H9ZM2 4a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v4H2V4Z"/></symbol>
 </svg>
 
@@ -111,6 +113,20 @@
       </div>
       <div class="compose">
         <div class="stack-16">
+          <div class="card card-pad ai-card">
+            <div class="card-head"><span class="step ai"><svg class="i"><use href="#i-sparkle"/></svg></span><h2 class="t-headline">AI 帮写</h2>
+              <span class="sub t-caption tertiary" id="ai-model"></span></div>
+            <div class="composer">
+              <textarea id="ai-text" rows="3" placeholder="用一两句话说说遇到的问题, 例如: 东南亚 gpt-6-luna 部署下午开始一直 429, 配额没用满"></textarea>
+              <div class="bar">
+                <button type="button" class="btn ghost sm mic" data-target="ai-text" title="语音输入"><svg class="i"><use href="#i-mic"/></svg></button>
+                <span class="t-caption tertiary">AI 会选择服务与问题类型, 并在信息不足时追问</span>
+                <button id="ai-go" class="btn primary sm"><svg class="i"><use href="#i-sparkle"/></svg>生成草稿</button>
+              </div>
+            </div>
+            <div id="ai-qa" class="hidden"></div>
+            <div id="ai-msg" class="hidden mt"></div>
+          </div>
           <div class="card card-pad">
             <div class="card-head"><span class="step" data-step="1">1</span><h2 class="t-headline">问题类别</h2><span id="kind-hint" class="sub t-caption tertiary"></span></div>
             <div class="grid">
@@ -263,7 +279,8 @@
   <div class="drawer-foot" id="d-foot">
     <div class="composer">
       <textarea id="d-reply" rows="3" placeholder="补充信息给支持工程师, 将以邮件形式发送…"></textarea>
-      <div class="bar"><span class="t-caption tertiary">⌘ / Ctrl + Enter 发送</span>
+      <div class="bar"><button type="button" class="btn ghost sm mic" data-target="d-reply" title="语音输入"><svg class="i"><use href="#i-mic"/></svg></button>
+        <span class="t-caption tertiary">⌘ / Ctrl + Enter 发送</span>
         <button id="d-send" class="btn primary sm"><svg class="i"><use href="#i-send"/></svg>发送</button></div>
     </div>
     <div id="d-msg" class="hidden mt"></div>
@@ -276,6 +293,7 @@
 <script src="/js/create.js"></script>
 <script src="/js/history.js"></script>
 <script src="/js/detail.js"></script>
+<script src="/js/ai.js"></script>
 <script src="/js/main.js"></script>
 </body>
 </html>

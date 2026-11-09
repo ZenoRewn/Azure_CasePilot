@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import server  # noqa: E402
+from casepilot import core as server  # noqa: E402  (核心逻辑已移至 casepilot.core)
 
 CONTACT = {"firstName": "三", "lastName": "张", "email": "a@b.com", "timeZone": "China Standard Time",
            "language": "zh-hans", "country": "CHN"}

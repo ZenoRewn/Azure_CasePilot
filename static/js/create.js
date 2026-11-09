@@ -29,26 +29,27 @@ function onSub() {
 $("tenant").onchange = onTenant;
 $("subscription").onchange = onSub;
 
-// 支持计划: 无直接 API, 取该订阅最近一张 Case 的 supportPlanType 作为参考
+// 支持计划: 服务端综合最近 Case 与订阅类型推断, 并标注来源
 async function detectPlan() {
   const sub = state.sub;
   try {
-    const ts = await api("tickets", { tenantId: state.tenant, subscriptionId: sub || null, days: 365 });
+    const [p, ts] = await Promise.all([api("plan", { tenantId: state.tenant, subscriptionId: sub || null }),
+      api("tickets", { tenantId: state.tenant, subscriptionId: sub || null, days: 30 })]);
     if (sub !== state.sub) return;
-    state.tickets = ts;
-    state.plan = ts.find((t) => t.supportPlanType)?.supportPlanType || null;
+    state.tickets = ts; state.planInfo = p; state.plan = p.plan;
     updateOpenCount();
-  } catch (_) { state.plan = null; }
+  } catch (_) { state.plan = null; state.planInfo = null; }
   renderPlanHint();
 }
+const PLAN_SRC = { ticket: "根据该订阅最近的 Case 识别", offer: "根据订阅类型推断", none: "" };
 function renderPlanHint() {
   const el = $("plan-hint"); el.innerHTML = "";
-  if (state.plan) el.append(h("span", { class: "badge accent", title: "根据该订阅最近的 Case 推断" }, "支持计划: " + state.plan));
+  const p = state.planInfo;
+  if (p && p.plan) el.append(h("span", { class: "badge " + (p.allowsCritical === false ? "warning" : "accent"), title: PLAN_SRC[p.source] }, "支持计划: " + p.plan));
   else el.append(h("span", { class: "t-caption tertiary" }, "支持计划未知 (该订阅暂无历史 Case)"));
-  const basic = /basic|developer/i.test(state.plan || "");
   document.querySelectorAll(".sev-opt").forEach((o) => {
     const v = o.querySelector("input").value;
-    o.title = basic && (v === "critical" || v === "highestcriticalimpact") ? "当前支持计划可能不支持该级别" : "";
+    o.title = p && p.allowsCritical === false && (v === "critical" || v === "highestcriticalimpact") ? "当前支持计划不支持该级别" : "";
   });
 }
 function updateOpenCount() {
@@ -291,7 +292,7 @@ $("btn-preview").onclick = (ev) => busy(ev.currentTarget, async () => {
 
 $("btn-create").onclick = async (ev) => {
   const btn = ev.currentTarget, body = buildBody(false);
-  const highWarn = /basic|developer/i.test(state.plan || "") && (body.severity === "critical" || body.severity === "highestcriticalimpact");
+  const highWarn = state.planInfo?.allowsCritical === false && (body.severity === "critical" || body.severity === "highestcriticalimpact");
   const ok = await modal({
     title: "确认创建 Support Case?", tone: highWarn ? "error" : "accent", ok: "创建",
     body: highWarn ? `当前订阅支持计划 (${state.plan}) 可能不支持 ${SEV[body.severity][0]} 级, 提交可能被拒绝。` : "提交后 Microsoft 支持会按所选严重性与联系方式与你联系。",

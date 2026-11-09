@@ -290,3 +290,15 @@ pre.code { margin: 16px 0 0; padding: 16px; border-radius: 16px; background: #0f
 }
 .brand-logo { width: 34px; height: 34px; border-radius: 9px; }
 .hero-logo { width: 56px; height: 56px; margin-bottom: 18px; display: block; filter: drop-shadow(0 8px 16px rgba(22,103,217,.3)); }
+
+/* AI 帮写 & 语音 */
+.ai-card { background: linear-gradient(180deg, var(--accent-50), var(--background-primary-default) 60%); border-color: var(--accent-100); }
+.step.ai { background: linear-gradient(140deg, var(--accent-500), #7c5cff); color: #fff; }
+.step.ai svg { width: 15px; height: 15px; }
+.qa { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--accent-200); animation: enter .3s var(--ease-out); }
+.qa .q { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.qa .row { display: flex; gap: 8px; }
+.mic.rec { color: var(--error-fg); background: var(--error-bg); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--error-fg) 18%, transparent); } }
+.filled { animation: fill-flash 1.2s ease-out; }
+@keyframes fill-flash { from { box-shadow: 0 0 0 3px var(--ring); background: var(--accent-50); } }

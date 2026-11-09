@@ -14,6 +14,7 @@ function setAuthed(name, meta, cloud) {
   $("topbar").classList.remove("hidden");
   callout($("auth-msg"), "", "");
   showView("create");
+  showAiModel();
 }
 async function loginCli(silent) {
   if (!silent) callout($("auth-msg"), "info", "正在读取 Azure CLI 会话…");

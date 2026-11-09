@@ -1,37 +1,54 @@
 #!/usr/bin/env python3
-"""Azure CasePilot — 本地 Web 工具, 快速创建 Azure Support Case.
+"""Azure CasePilot — Web / 服务器 / MCP 入口.
 
-零第三方依赖 (仅 Python 3.9+ 标准库)。认证两种方式:
-  1. Azure CLI: 复用本机 `az login` 会话 (az account get-access-token)
-  2. App Registration: client_credentials (Client ID + Secret)
-
-仅监听 127.0.0.1, 每次启动生成随机会话令牌防 CSRF / DNS rebinding。
+两种运行模式:
+  local  (默认): 仅监听 127.0.0.1, Azure CLI / 设备码 / App Registration 登录, 随机会话令牌防 CSRF。
+  server       : 监听 0.0.0.0 供容器 / AKS 使用; 使用 Workload Identity 或 App Registration (环境变量),
+                 所有 API 与 /mcp 需 Authorization: Bearer <CASEPILOT_API_KEY> (或前置 Entra 认证网关)。
+零第三方依赖 (Python 3.9+ 标准库)。
 """
 import json
-import re
 import os
 import secrets
-import shutil
-import ssl
-import tempfile
-import subprocess
 import sys
 import threading
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
-import uuid
 import webbrowser
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
-from casepilot.core import *  # noqa: F401,F403  (Tidy First: 核心逻辑移至 casepilot/core.py)
-from casepilot import core
+from casepilot.core import (AUTH, STATIC, ApiError, add_communication, arm_list, check_ids, close_ticket,  # noqa: F401
+                            create_ticket, list_all_resources, list_problems, list_resources, list_services,
+                            list_tickets, ticket_detail)
+from casepilot import mcp, service
+
+SESSION_TOKEN = secrets.token_urlsafe(24)
+
+
+@dataclass
+class Config:
+    mode: str = "local"
+    host: str = "127.0.0.1"
+    port: int = 8765
+    api_key: str = ""
+
+    @staticmethod
+    def from_env(env):
+        mode = env.get("CASEPILOT_MODE", "local")
+        c = Config(mode=mode, host="0.0.0.0" if mode == "server" else "127.0.0.1",
+                   port=int(env.get("CASEPILOT_PORT", "8080" if mode == "server" else "8765")),
+                   api_key=env.get("CASEPILOT_API_KEY", ""))
+        if mode == "server" and len(c.api_key) < 24 and env.get("CASEPILOT_TRUST_PROXY_AUTH") != "1":
+            sys.exit("server 模式需设置 CASEPILOT_API_KEY (>=24 字符), 或在 Entra 认证网关后设置 CASEPILOT_TRUST_PROXY_AUTH=1")
+        return c
+
+
+SERVER_BLOCKED = {"login/cli", "login/device/start", "login/device/poll", "login/sp", "logout", "quit"}
 
 # ---------------------------------------------------------------- HTTP
 
-STATIC_FILES = {**{f"/js/{n}.js": "text/javascript; charset=utf-8" for n in ("core", "auth", "create", "history", "detail", "main")},
+STATIC_FILES = {**{f"/js/{n}.js": "text/javascript; charset=utf-8" for n in ("core", "auth", "create", "history", "detail", "ai", "main")},
                 "/style.css": "text/css; charset=utf-8",
                 "/logo.png": "image/png", "/favicon.ico": "image/png"}
 
@@ -49,17 +66,33 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:")
+        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:")
         self.end_headers()
         self.wfile.write(data)
 
+    cfg = Config()
+
+    @property
+    def server_mode(self):
+        return self.cfg.mode == "server"
+
     def _host_ok(self):
-        return self.headers.get("Host", "") in (f"127.0.0.1:{PORT}", f"localhost:{PORT}")
+        return self.server_mode or self.headers.get("Host", "") in (f"127.0.0.1:{self.cfg.port}", f"localhost:{self.cfg.port}")
+
+    def _authorized(self):
+        if self.server_mode:
+            if os.environ.get("CASEPILOT_TRUST_PROXY_AUTH") == "1" and self.headers.get("X-MS-CLIENT-PRINCIPAL-NAME"):
+                return True
+            got = self.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            return bool(self.cfg.api_key) and secrets.compare_digest(got, self.cfg.api_key)
+        return secrets.compare_digest(self.headers.get("X-CasePilot-Token", ""), SESSION_TOKEN)
 
     def do_GET(self):
+        path = urllib.parse.urlparse(self.path).path
+        if path in ("/healthz", "/readyz"):
+            return self._send(200, {"ok": True, "mode": self.cfg.mode, "auth": AUTH.mode})
         if not self._host_ok():
             return self._send(403, {"error": "forbidden host"})
-        path = urllib.parse.urlparse(self.path).path
         if path == "/":
             html = (STATIC / "index.html").read_text(encoding="utf-8").replace("__SESSION_TOKEN__", SESSION_TOKEN)
             return self._send(200, html.encode(), "text/html; charset=utf-8")
@@ -69,12 +102,22 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"error": "not found"})
 
     def do_POST(self):
-        if not self._host_ok() or not secrets.compare_digest(self.headers.get("X-CasePilot-Token", ""), SESSION_TOKEN):
-            return self._send(403, {"error": "invalid session token"})
+        if not self._host_ok():
+            return self._send(403, {"error": "forbidden host"})
+        if not self._authorized():
+            return self._send(401 if self.server_mode else 403, {"error": "unauthorized"})
+        path = urllib.parse.urlparse(self.path).path
         try:
             n = int(self.headers.get("Content-Length") or 0)
+            if n > 16 * 1024 * 1024:
+                return self._send(413, {"error": "payload too large"})
             req = json.loads(self.rfile.read(n) or b"{}")
-            action = urllib.parse.urlparse(self.path).path.removeprefix("/api/")
+            if path == "/mcp":
+                resp = MCP.handle(req)
+                return self._send(202 if resp is None else 200, resp or b"")
+            action = path.removeprefix("/api/")
+            if self.server_mode and action in SERVER_BLOCKED:
+                return self._send(403, {"ok": False, "error": "服务器模式下认证由部署配置决定"})
             fn = ROUTES.get(action)
             check_ids(req)
             if not fn:
@@ -113,26 +156,47 @@ ROUTES = {
     "tickets": lambda r: list_tickets(r["tenantId"], r.get("subscriptionId"), r.get("days", 30)),
     "ticket": lambda r: ticket_detail(r["tenantId"], r.get("subscriptionId"), r.get("name")),
     "close": lambda r: close_ticket(r["tenantId"], r.get("subscriptionId"), r.get("name")),
+    "ai/draft": service.ai_draft,
+    "ai/transcribe": service.transcribe,
+    "ai/config": lambda r: service.ai_config(r).public(),
+    "plan": service.support_plan,
     "reply": lambda r: add_communication(r["tenantId"], r.get("subscriptionId"), r.get("name"),
                                          r.get("subject"), r.get("body")),
 }
 
 
+MCP = mcp.Server(context=lambda: {"tenantId": os.environ.get("CASEPILOT_TENANT_ID") or os.environ.get("AZURE_TENANT_ID"),
+                                  "subscriptionId": os.environ.get("CASEPILOT_SUBSCRIPTION_ID")})
+
+
+def make_server(cfg):
+    Handler.cfg = cfg
+    return ThreadingHTTPServer((cfg.host, cfg.port), Handler)
+
+
 def main():
-    global PORT
-    for port in range(PORT, PORT + 20):
-        try:
-            srv = ThreadingHTTPServer((HOST, port), Handler)
-            break
-        except OSError:
-            continue
+    cfg = Config.from_env(os.environ)
+    if cfg.mode == "server":
+        if os.environ.get("AZURE_FEDERATED_TOKEN_FILE"):
+            AUTH.use_workload()
+        elif os.environ.get("AZURE_CLIENT_SECRET"):
+            AUTH.use_sp(os.environ["AZURE_TENANT_ID"], os.environ["AZURE_CLIENT_ID"], os.environ["AZURE_CLIENT_SECRET"], "AzureCloud")
+        srv = make_server(cfg)
+        print(f"CasePilot server 模式: 0.0.0.0:{cfg.port} auth={AUTH.mode}", flush=True)
     else:
-        sys.exit(f"端口 {PORT}-{PORT + 19} 均被占用, 请设置 CASEPILOT_PORT")
-    PORT = port
-    url = f"http://127.0.0.1:{PORT}/"
-    print(f"Azure CasePilot 已启动: {url}  (Ctrl+C 退出)")
-    if os.environ.get("CASEPILOT_NO_BROWSER") != "1":
-        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        for port in range(cfg.port, cfg.port + 20):
+            try:
+                cfg.port = port
+                srv = make_server(cfg)
+                break
+            except OSError:
+                continue
+        else:
+            sys.exit("端口均被占用, 请设置 CASEPILOT_PORT")
+        url = f"http://127.0.0.1:{cfg.port}/"
+        print(f"Azure CasePilot 已启动: {url}  (Ctrl+C 退出)", flush=True)
+        if os.environ.get("CASEPILOT_NO_BROWSER") != "1":
+            threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
