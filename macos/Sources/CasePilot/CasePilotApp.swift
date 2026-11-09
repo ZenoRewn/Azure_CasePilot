@@ -11,8 +11,9 @@ struct CasePilotApp: App {
                 .environment(store)
                 .frame(minWidth: 1000, minHeight: 680)
                 .preferredColorScheme(.light)
+                .windowMaterial()
         }
-        .windowToolbarStyle(.unified)
+        .windowToolbarStyle(.unified(showsTitle: true))
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {}
@@ -22,11 +23,7 @@ struct CasePilotApp: App {
             }
         }
         Settings {
-            TabView {
-                ContactSettingsView().tabItem { Label("联系人", systemImage: "person.crop.circle") }
-                AISettingsView().tabItem { Label("AI 与语音", systemImage: "sparkles") }
-                MCPSettingsView().tabItem { Label("MCP", systemImage: "point.3.connected.trianglepath.dotted") }
-            }
+            SettingsRoot()
             .environment(store).preferredColorScheme(.light)
         }
     }
@@ -94,8 +91,14 @@ struct Sidebar: View {
                         .badge(store.openCount)
                         .tag(AppSection.history)
                 }
+                Section("设置") {
+                    SidebarSettingsLink(tab: .ai, title: "AI 与语音", symbol: "sparkles")
+                    SidebarSettingsLink(tab: .contact, title: "联系人", symbol: "person.crop.circle")
+                    SidebarSettingsLink(tab: .mcp, title: "MCP", symbol: "point.3.connected.trianglepath.dotted")
+                }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
             if let id = store.identity {
                 IdentityMenu {
                     HStack(spacing: 10) {
@@ -110,7 +113,7 @@ struct Sidebar: View {
                         Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.tertiary)
                     }
                     .padding(12)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                    .glassCard(cornerRadius: 12)
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .padding(10)
@@ -172,5 +175,37 @@ struct ScopeToolbar: ToolbarContent {
             }
             .frame(width: 300).help("订阅")
         }
+    }
+}
+
+struct SidebarSettingsLink: View {
+    let tab: SettingsTab, title: String, symbol: String
+    @Environment(\.openSettings) private var openSettings
+    var body: some View {
+        Button {
+            UserDefaults.standard.set(tab.rawValue, forKey: "settingsTab")
+            NotificationCenter.default.post(name: .selectSettingsTab, object: tab)
+            openSettings()
+        } label: { Label(title, systemImage: symbol) }
+        .buttonStyle(.plain)
+    }
+}
+
+struct SettingsRoot: View {
+    @State private var tab = SettingsTab(rawValue: UserDefaults.standard.string(forKey: "settingsTab") ?? "") ?? .ai
+    var body: some View {
+        TabView(selection: $tab) {
+            AISettingsView().tabItem { Label("AI 与语音", systemImage: "sparkles") }.tag(SettingsTab.ai)
+            ContactSettingsView().tabItem { Label("联系人", systemImage: "person.crop.circle") }.tag(SettingsTab.contact)
+            MCPSettingsView().tabItem { Label("MCP", systemImage: "point.3.connected.trianglepath.dotted") }.tag(SettingsTab.mcp)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .selectSettingsTab)) { if let t = $0.object as? SettingsTab { tab = t } }
+    }
+}
+
+extension View {
+    /// 窗口背景使用系统材质 (macOS 15+); 14 保持默认
+    @ViewBuilder func windowMaterial() -> some View {
+        if #available(macOS 15.0, *) { self.containerBackground(.thinMaterial, for: .window) } else { self }
     }
 }

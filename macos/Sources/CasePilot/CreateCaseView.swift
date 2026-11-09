@@ -131,6 +131,7 @@ struct CreateCaseView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .frame(maxWidth: 720)
         .frame(maxWidth: .infinity)
         .navigationTitle("新建 Case")

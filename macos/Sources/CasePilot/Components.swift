@@ -141,3 +141,18 @@ extension Date {
     }
     var full: String { formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute().locale(Locale(identifier: "zh_CN"))) }
 }
+
+/// Liquid Glass (macOS 26+), 低版本回退为系统材质; 仅用于浮层/强调控件, 不铺满整窗
+extension View {
+    @ViewBuilder func glassCard(cornerRadius: CGFloat = 16) -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius))
+        } else {
+            self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+        }
+    }
+}
+
+/// 打开设置并跳到指定页
+enum SettingsTab: String { case contact, ai, mcp }
+extension Notification.Name { static let selectSettingsTab = Notification.Name("selectSettingsTab") }

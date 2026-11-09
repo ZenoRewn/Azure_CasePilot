@@ -66,13 +66,12 @@ struct LoginView: View {
             }
             .padding(32)
             .frame(width: 460)
-            .background(.background, in: RoundedRectangle(cornerRadius: 24))
-            .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(.separator))
+            .glassCard(cornerRadius: 24)
             .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(.background.secondary)
         .task {
             guard !autoTried else { return }
             autoTried = true

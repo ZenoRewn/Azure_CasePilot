@@ -71,7 +71,8 @@ struct AIComposer: View {
             HStack {
                 if let status {
                     Label(status.text, systemImage: status.ok ? "checkmark.circle.fill" : "info.circle")
-                        .font(.caption).foregroundStyle(status.ok ? .green : .secondary)
+                        .font(.caption).foregroundStyle(status.ok ? .green : .secondary).lineLimit(3)
+                    if !status.ok && status.text.contains("AI 服务错误") { AISettingsButton(compact: true) }
                 }
                 Spacer()
                 if !questions.isEmpty {
@@ -87,7 +88,7 @@ struct AIComposer: View {
             HStack {
                 Label("AI 帮写", systemImage: "sparkles").foregroundStyle(.tint)
                 Spacer()
-                SettingsLink { Text(AIConfig.load().chatDeployment).font(.caption).foregroundStyle(.secondary) }.buttonStyle(.plain).help("AI 设置")
+                AISettingsButton()
             }
         }
     }
@@ -107,5 +108,25 @@ struct AIComposer: View {
                 : d.service == nil ? (false, "未能确定服务, 请手动选择")
                 : !d.questions.isEmpty ? (false, "已生成初稿, 回答下面的问题可让描述更完整") : (false, "请确认问题类型")
         } catch { status = (false, error.localizedDescription) }
+    }
+}
+
+/// 显眼的 AI 设置入口: 显示当前模型与认证方式, 点击直达 设置 → AI 与语音
+struct AISettingsButton: View {
+    var compact = false
+    @Environment(\.openSettings) private var openSettings
+    var body: some View {
+        let c = AIConfig.load()
+        let auth = SecretStore.get(.aoai) == nil ? "登录身份" : "API Key"
+        Button {
+            UserDefaults.standard.set(SettingsTab.ai.rawValue, forKey: "settingsTab")
+            NotificationCenter.default.post(name: .selectSettingsTab, object: SettingsTab.ai)
+            openSettings()
+        } label: {
+            Label(compact ? "配置 AI" : "\(c.chatDeployment) · \(auth)", systemImage: "gearshape")
+                .font(.caption)
+        }
+        .buttonStyle(.bordered).controlSize(.small)
+        .help("配置 AI 帮写与语音 (Endpoint / Key / 区域)")
     }
 }
