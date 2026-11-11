@@ -48,12 +48,20 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="1">
+                    <!-- 主操作: 整宽强调色按钮, 与 Web 端一致 -->
+                    <Button Style="{StaticResource AccentButton}" Command="{Binding GoCreateCommand}" HorizontalAlignment="Stretch"
+                            Margin="4,0,4,16" Height="36" ToolTip="新建 Case (Ctrl+N)" AutomationProperties.Name="新建 Case (主按钮)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="White" FontSize="14" Margin="0,0,8,0" />
+                            <TextBlock Text="新建 Case" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <TextBlock Text="工作台" Style="{StaticResource Caption}" Margin="12,0,0,6" />
                     <RadioButton Style="{StaticResource NavItem}" GroupName="nav"
                                  IsChecked="{Binding Shell.CurrentPage, Converter={StaticResource EnumEq}, ConverterParameter=Create}"
                                  AutomationProperties.Name="新建 Case" ToolTip="新建 Case (Ctrl+N)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,12,0" />
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,12,0" />
                             <TextBlock Text="新建 Case" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -62,7 +70,7 @@
                                  AutomationProperties.Name="我的 Case" ToolTip="我的 Case (Ctrl+2)">
                         <Grid Width="204">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8A5;" Style="{StaticResource Icon}" Margin="0,0,12,0" />
+                                <TextBlock Text="&#xE8A5;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,12,0" />
                                 <TextBlock Text="我的 Case" VerticalAlignment="Center" />
                             </StackPanel>
                             <Border HorizontalAlignment="Right" Margin="0,0,12,0" MinWidth="20" Height="18" CornerRadius="9" Padding="6,0"
@@ -80,7 +88,7 @@
                                  IsChecked="{Binding Shell.CurrentPage, Converter={StaticResource EnumEq}, ConverterParameter=AISettings}"
                                  AutomationProperties.Name="AI 与语音" ToolTip="AI 与语音 (Ctrl+,)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" Margin="0,0,12,0" />
+                            <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,12,0" />
                             <TextBlock Text="AI 与语音" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -88,7 +96,7 @@
                                  IsChecked="{Binding Shell.CurrentPage, Converter={StaticResource EnumEq}, ConverterParameter=Contacts}"
                                  AutomationProperties.Name="联系人">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE77B;" Style="{StaticResource Icon}" Margin="0,0,12,0" />
+                            <TextBlock Text="&#xE77B;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,12,0" />
                             <TextBlock Text="联系人" VerticalAlignment="Center" />
                             <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="14" Margin="8,0,0,0" Foreground="{DynamicResource CpCaution}"
                                        ToolTip="联系人信息不完整" AutomationProperties.Name="联系人信息不完整"
@@ -99,7 +107,7 @@
                                  IsChecked="{Binding Shell.CurrentPage, Converter={StaticResource EnumEq}, ConverterParameter=Mcp}"
                                  AutomationProperties.Name="MCP">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE943;" Style="{StaticResource Icon}" Margin="0,0,12,0" />
+                            <TextBlock Text="&#xE943;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,12,0" />
                             <TextBlock Text="MCP" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>

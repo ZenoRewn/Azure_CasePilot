@@ -118,10 +118,11 @@ public partial class App : Application
         var delay = new SystemDelay();
         var ai = new AIClient(http, realAuth, delay, () => AISettingsVM.Load(settings), secrets);
         var os = new ShellOps();
+        var streaming = new StreamingTranscriber(http, realAuth, () => AISettingsVM.Load(settings), secrets, () => new ClientWebSocketConnection(), new SystemClock());
         Window? main = null;
         var deps = new AppDeps(realApi, realAuth, settings, secrets, os, new Dialogs(() => main), delay, ai,
             new WaveRecorder(), ai, McpSettingsVM.DefaultPython(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)), FindRepo(),
-            new StreamingTranscriber(http, realAuth, () => AISettingsVM.Load(settings), secrets, () => new ClientWebSocketConnection(), new SystemClock()));
+            streaming, ai.PingAsync, streaming.ProbeAsync);
         var vm = new MainVM(deps);
         MicButton.Factory = vm.NewMic;
         main = new MainWindow(vm, settings);

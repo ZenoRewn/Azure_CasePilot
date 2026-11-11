@@ -11,7 +11,7 @@ namespace CasePilot.App.ViewModels;
 public sealed record AppDeps(
     ISupportApi Api, ILoginService Auth, ISettingsStore Settings, ISecretStore Secrets, IShell Os, IDialogs Dialogs,
     IDelay Delay, IChat Chat, IAudioRecorder Recorder, ITranscriber Transcriber, string PythonPath, string RepoPath,
-    IStreamingTranscriber? Streaming = null);
+    IStreamingTranscriber? Streaming = null, Func<CancellationToken, Task>? ChatProbe = null, Func<CancellationToken, Task>? SttProbe = null);
 
 /// <summary>主窗口: 组合各页面 ViewModel, 处理详情面板、Toast、范围选择与快捷键.</summary>
 public sealed class MainVM : ObservableObject
@@ -25,7 +25,7 @@ public sealed class MainVM : ObservableObject
         _d = d;
         Shell = new ShellVM(d.Api, d.Auth, d.Settings);
         Login = new LoginVM(Shell, d.Auth, d.Secrets, d.Settings, d.Os);
-        AISettings = new AISettingsVM(d.Settings, d.Secrets);
+        AISettings = new AISettingsVM(d.Settings, d.Secrets, d.ChatProbe, d.SttProbe, () => Shell.Identity?.User);
         Create = new CreateCaseVM(Shell, d.Api, d.Chat, d.Dialogs, d.Secrets, () => AISettingsVM.Load(d.Settings), d.Os);
         History = new HistoryVM(Shell);
         Contact = new ContactSettingsVM(Shell);
@@ -36,7 +36,7 @@ public sealed class MainVM : ObservableObject
             switch (e.PropertyName)
             {
                 case nameof(ShellVM.Tickets): OnPropertyChanged(nameof(OpenBadge)); break;
-                case nameof(ShellVM.Identity): OnPropertyChanged(nameof(ShowLogin)); if (!Shell.IsLoggedIn) CloseDetail(); break;
+                case nameof(ShellVM.Identity): AISettings.RefreshIdentity(); OnPropertyChanged(nameof(ShowLogin)); if (!Shell.IsLoggedIn) CloseDetail(); break;
                 case nameof(ShellVM.Subscriptions): OnPropertyChanged(nameof(SubscriptionOptions)); OnPropertyChanged(nameof(SelectedSubscription)); break;
                 case nameof(ShellVM.SubscriptionId): OnPropertyChanged(nameof(SelectedSubscription)); break;
                 case nameof(ShellVM.TenantId): OnPropertyChanged(nameof(SelectedTenant)); break;

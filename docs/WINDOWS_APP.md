@@ -5,8 +5,8 @@
 ## 功能
 - **登录**: 支持 Azure CLI (复用 `az login`)、浏览器设备码、App Registration (Client ID + Secret) 三种方式。Secret 存放在 Windows 凭据管理器 (`CasePilot/sp/<clientId>`)。
 - **切换范围**: 顶部命令栏可切换 租户 / 订阅。
-- **支持计划**: 根据最近的 Case 或订阅类型推断。
-- **新建 Case**: 依次选择 服务 → 问题类型 → 严重性 (C/B/A/A+), 再填写标题与描述, 可预览请求体后提交。
+- **支持计划**: 根据最近的 Case 或订阅类型推断。新建页「严重性」右侧显示徽章: 蓝色 = 已识别, 灰色 = 未知, 橙色 = 所选 A/A+ 超出计划 (悬停显示来源); 身份卡中同样显示。
+- **新建 Case**: 侧边栏顶部蓝色主按钮「新建 Case」(Ctrl+N) 直达; 依次选择 服务 → 问题类型 → 严重性 (C/B/A/A+), 再填写标题与描述, 可预览请求体后提交。
   - 也可从快捷入口、最近使用、订阅资源反查进入。
   - 支持配额表单。
 - **AI 帮写与语音输入**: 由 Azure OpenAI 或 Azure Speech 提供, 通过 winmm 录音 (16 kHz 单声道)。语音为**流式**: 录音中输入框实时显示识别结果, 停止后替换为最终文本:
@@ -14,6 +14,7 @@
   - Azure Speech: 实时识别 WebSocket 协议 (无需 SDK) + Post-Stream Refinement (PSR); 先经 `/sts/v1.0/issueToken` 换取 Speech 令牌, 区域取设置或令牌中的 region。
   - 流式失败 (连接/认证/超时) 时自动退回整段转写 (`gpt-4o-mini-transcribe` / Speech 快速转写)。协议逻辑见 `CasePilot.Core/AI/Streaming.cs`、`StreamingTranscriber.cs`。
  AI / STT Key 存放在凭据管理器 (`CasePilot/ai/aoai-key`、`CasePilot/ai/stt-key`)。
+- **认证方式**: 设置 → AI 与语音 中「AI 帮写」与「语音输入」各有分段控件 **登录身份 (Entra ID) | API Key** (`chatAuth` / `sttAuth`)。登录身份时显示「以 <账号> 调用 · 需要 <角色> 角色」(对话 / AOAI 转写: Cognitive Services OpenAI User; Speech: Cognitive Services User); 选 Entra 时忽略已存 Key 但不删除。旧设置无该字段时按是否已存 Key 推断, 升级后行为不变。每组有「测试连接」: 对话发 `ping` (max_completion_tokens 16), 语音建立一次流式会话 (AOAI 收到 `session.updated` / Speech 取得 STS 并连上) 即成功; 401/403 提示缺少的角色或检查 Key。
 - **我的 Case**: 列表、筛选、详情 (含 SLA 与沟通记录)、补充信息、关闭 Case。
 - **联系人设置**与 **MCP 配置**页面。
 - **界面**: WPF 内置 Fluent 主题 (Light) + Mica, 仅浅色。

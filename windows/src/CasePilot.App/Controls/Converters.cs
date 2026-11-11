@@ -67,8 +67,29 @@ public sealed class DisplayConverter : IValueConverter
         ("sevTitle", Severity s) => s.Title(),
         ("cloud", AzureCloud a) => a.Label(),
         ("stt", SttProvider s) => s.Label(),
+        ("auth", AIAuth a) => a == AIAuth.Entra ? "登录身份 (Entra ID)" : "API Key",
         _ => value is null ? "" : value,
     };
+
+    public object ConvertBack(object? value, Type t, object? p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>徽章种类 (accent / neutral / warning) → 主题画刷; Parameter="fg" 取前景色.</summary>
+public sealed class KindBrushConverter : IValueConverter
+{
+    public bool Foreground { get; set; }
+
+    public object? Convert(object? value, Type t, object? p, CultureInfo c)
+    {
+        var key = (value as string) switch
+        {
+            "accent" => Foreground ? "CpAccent" : "CpAccentSubtle",
+            "warning" => Foreground ? "CpCaution" : "CpCautionBg",
+            "success" => Foreground ? "CpSuccess" : "CpSuccessBg",
+            _ => Foreground ? "CpNeutral" : "CpNeutralBg",
+        };
+        return Application.Current?.TryFindResource(key);
+    }
 
     public object ConvertBack(object? value, Type t, object? p, CultureInfo c) => Binding.DoNothing;
 }

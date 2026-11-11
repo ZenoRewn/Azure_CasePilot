@@ -45,6 +45,19 @@ public sealed class AIClient(HttpClient http, IAuthProvider auth, IDelay delay, 
         return j["choices"]?[0]?["message"]?["content"] is JsonValue v && v.TryGetValue<string>(out var s) ? s : "{}";
     }
 
+    /// <summary>测试连接: 极小请求, 不带 response_format.</summary>
+    public async Task PingAsync(CancellationToken ct)
+    {
+        var c = config().Trimmed();
+        var body = new JsonObject
+        {
+            ["model"] = c.ChatDeployment,
+            ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = "ping" }),
+            ["max_completion_tokens"] = 16,
+        };
+        await PostAsync(c, SttUrls.Chat(c), Encoding.UTF8.GetBytes(body.ToJsonString()), "application/json", AIKind.Chat, ct);
+    }
+
     public async Task<string> TranscribeAsync(byte[] audio, string filename, string mime, CancellationToken ct)
     {
         var c = config().Trimmed();
@@ -60,7 +73,7 @@ public sealed class AIClient(HttpClient http, IAuthProvider auth, IDelay delay, 
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             throw new AppError($"Endpoint 无效: {url}");
-        var key = secrets.Read(kind == AIKind.Chat ? ChatKeyTarget : SttKeyTarget);
+        var key = AIKeys.Effective(c, kind, secrets);
         var usesKey = !string.IsNullOrEmpty(key);
         var bearer = usesKey ? null : await auth.GetTokenAsync(null, AuthProvider.Cognitive, ct);
         var headers = AIHeaders.For(c, kind, key, bearer);

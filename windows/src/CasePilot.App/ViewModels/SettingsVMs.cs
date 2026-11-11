@@ -18,10 +18,18 @@ public sealed class AISettingsVM : ObservableObject
     private readonly ISecretStore _secrets;
     private AIConfig _c;
 
-    public AISettingsVM(ISettingsStore settings, ISecretStore secrets)
+    private readonly Func<CancellationToken, Task>? _chatProbe, _sttProbe;
+    private readonly Func<string?> _user;
+
+    public AISettingsVM(ISettingsStore settings, ISecretStore secrets, Func<CancellationToken, Task>? chatProbe = null,
+        Func<CancellationToken, Task>? sttProbe = null, Func<string?>? user = null)
     {
-        (_settings, _secrets) = (settings, secrets);
-        _c = Load(settings);
+        (_settings, _secrets, _chatProbe, _sttProbe, _user) = (settings, secrets, chatProbe, sttProbe, user ?? (() => null));
+        // 旧设置没有认证方式: 按已存 Key 推断一次并保存 (升级后行为不变)
+        _c = Load(settings).Migrated(secrets);
+        _settings.Set(ConfigKey, _c.ToJson());
+        TestChatCommand = new AsyncRelayCommand(() => ProbeAsync(_chatProbe, AIKind.Chat), () => _chatProbe is not null);
+        TestSttCommand = new AsyncRelayCommand(() => ProbeAsync(_sttProbe, AIKind.Stt), () => _sttProbe is not null);
         ResetCommand = new RelayCommand(Reset);
         SaveChatKeyCommand = new RelayCommand(SaveChatKey);
         ClearChatKeyCommand = new RelayCommand(ClearChatKey);
@@ -50,6 +58,57 @@ public sealed class AISettingsVM : ObservableObject
     public string SttLanguage { get => _c.SttLanguage; set => Update(_c with { SttLanguage = value }); }
     public string SpeechRegion { get => _c.SpeechRegion; set => Update(_c with { SpeechRegion = value }); }
 
+    public static IReadOnlyList<AIAuth> AuthModes { get; } = [AIAuth.Entra, AIAuth.Key];
+    public AIAuth ChatAuth { get => _c.ChatAuth ?? AIAuth.Entra; set => Update(_c with { ChatAuth = value }); }
+    public AIAuth SttAuth { get => _c.SttAuth ?? AIAuth.Entra; set => Update(_c with { SttAuth = value }); }
+    public bool ChatUsesKey => ChatAuth == AIAuth.Key;
+    public bool SttUsesKey => SttAuth == AIAuth.Key;
+    public string ChatEntraHint => EntraHint(AIKind.Chat);
+    public string SttEntraHint => EntraHint(AIKind.Stt);
+    string EntraHint(AIKind kind) =>
+        $"以 {(_user() is { Length: > 0 } u ? u : "当前登录身份")} 调用 · 需要 {AIKeys.Role(_c, kind)} 角色";
+    public string SttKeyHint => IsSpeech ? "使用 Speech Key 时区域必填" : "";
+
+    // 测试连接
+    public AsyncRelayCommand TestChatCommand { get; }
+    public AsyncRelayCommand TestSttCommand { get; }
+    string? _chatTest, _sttTest;
+    bool _chatTestOk, _sttTestOk;
+    public string ChatTestKind => ChatTestOk ? "success" : "warning";
+    public string SttTestKind => SttTestOk ? "success" : "warning";
+    public string? ChatTest { get => _chatTest; private set { if (SetProperty(ref _chatTest, value)) OnPropertyChanged(nameof(ChatTestKind)); } }
+    public string? SttTest { get => _sttTest; private set { if (SetProperty(ref _sttTest, value)) OnPropertyChanged(nameof(SttTestKind)); } }
+    public bool ChatTestOk { get => _chatTestOk; private set => SetProperty(ref _chatTestOk, value); }
+    public bool SttTestOk { get => _sttTestOk; private set => SetProperty(ref _sttTestOk, value); }
+
+    public async Task ProbeAsync(Func<CancellationToken, Task>? probe, AIKind kind)
+    {
+        if (probe is null) return;
+        void Report(bool ok, string text)
+        {
+            if (kind == AIKind.Chat) { ChatTestOk = ok; ChatTest = text; } else { SttTestOk = ok; SttTest = text; }
+        }
+        Report(false, "正在测试…");
+        try
+        {
+            await probe(CancellationToken.None);
+            Report(true, "连接成功");
+        }
+        catch (Exception e)
+        {
+            var status = (e as AppError)?.Status;
+            var usesKey = kind == AIKind.Chat ? ChatUsesKey : SttUsesKey;
+            var hint = status is 401 or 403
+                ? usesKey ? "请检查 Key 与 Endpoint / 区域" : $"当前身份缺少 {AIKeys.Role(_c, kind)} 角色"
+                : null;
+            var first = e.Message.Split('\n')[0];
+            Report(false, hint is null ? first : $"{first} · {hint}");
+        }
+    }
+
+    /// <summary>登录身份变化时刷新说明行.</summary>
+    public void RefreshIdentity() { OnPropertyChanged(nameof(ChatEntraHint)); OnPropertyChanged(nameof(SttEntraHint)); }
+
     public bool IsSpeech => SttProvider == SttProvider.AzureSpeech;
     /// <summary>Speech 填写区域后忽略 Endpoint.</summary>
     public bool SttEndpointEnabled => !IsSpeech || SpeechRegion.Trim().Length == 0;
@@ -61,8 +120,8 @@ public sealed class AISettingsVM : ObservableObject
 
     public bool ChatKeyStored => !string.IsNullOrEmpty(_secrets.Read(AIClient.ChatKeyTarget));
     public bool SttKeyStored => !string.IsNullOrEmpty(_secrets.Read(AIClient.SttKeyTarget));
-    public string ChatKeyStatus => ChatKeyStored ? Stored : "未设置 · 使用登录身份 (Entra ID)";
-    public string SttKeyStatus => SttKeyStored ? Stored : "未设置 · 使用登录身份";
+    public string ChatKeyStatus => ChatKeyStored ? Stored : "未设置";
+    public string SttKeyStatus => SttKeyStored ? Stored : "未设置";
 
     public RelayCommand ResetCommand { get; }
     public RelayCommand SaveChatKeyCommand { get; }
@@ -81,6 +140,7 @@ public sealed class AISettingsVM : ObservableObject
         if (ChatKeyInput.Trim().Length == 0) return;
         WriteKey(AIClient.ChatKeyTarget, ChatKeyInput.Trim());
         ChatKeyInput = "";
+        ChatAuth = AIAuth.Key;
     }
 
     public void ClearChatKey() => WriteKey(AIClient.ChatKeyTarget, null);
@@ -90,6 +150,7 @@ public sealed class AISettingsVM : ObservableObject
         if (SttKeyInput.Trim().Length == 0) return;
         WriteKey(AIClient.SttKeyTarget, SttKeyInput.Trim());
         SttKeyInput = "";
+        SttAuth = AIAuth.Key;
     }
 
     public void ClearSttKey() => WriteKey(AIClient.SttKeyTarget, null);
@@ -99,7 +160,8 @@ public sealed class AISettingsVM : ObservableObject
         _secrets.Write(AIClient.ChatKeyTarget, null);
         _secrets.Write(AIClient.SttKeyTarget, null);
         (ChatKeyInput, SttKeyInput) = ("", "");
-        _c = new AIConfig();
+        _c = new AIConfig { ChatAuth = AIAuth.Entra, SttAuth = AIAuth.Entra };
+        (ChatTest, SttTest) = (null, null);
         _settings.Set(ConfigKey, _c.ToJson());
         OnPropertyChanged(string.Empty);
     }
