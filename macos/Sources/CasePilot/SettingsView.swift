@@ -45,11 +45,12 @@ struct AISettingsView: View {
             Section {
                 Picker("转写服务", selection: $c.sttProvider) { ForEach(STTProvider.allCases) { Text($0.label).tag($0) } }
                 if c.sttProvider == .azureSpeech {
-                    TextField("区域", text: $c.speechRegion, prompt: Text("如 southeastasia (填写后忽略 Endpoint)"))
-                    TextField("Endpoint", text: $c.sttEndpoint).disabled(!c.speechRegion.isEmpty)
+                    TextField("Endpoint", text: $c.sttEndpoint, prompt: Text("资源 Endpoint (登录身份认证时使用)"))
+                    TextField("区域", text: $c.speechRegion, prompt: Text("如 westus3; 使用 Speech Key 时必填"))
                 } else {
                     TextField("Endpoint", text: $c.sttEndpoint)
-                    TextField("部署名", text: $c.sttDeployment)
+                    TextField("流式部署名", text: $c.sttStreamDeployment)
+                    TextField("整段转写部署名", text: $c.sttDeployment, prompt: Text("流式失败时使用"))
                 }
                 SecureField(c.sttProvider == .azureSpeech ? "Speech Key" : "API Key", text: $sttKey, prompt: Text("留空则使用当前登录身份"))
                 TextField("语言", text: $c.sttLanguage)

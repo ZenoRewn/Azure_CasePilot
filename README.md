@@ -41,7 +41,10 @@
 
 ## 功能
 - **AI 帮写** (v2.0): 一句话描述 (可语音) → AI 选择服务 / 问题类型 / 严重性并写好结构化描述; 信息不足时追问一轮。只从 Azure 真实目录中选择, 不编造。默认 westus3 `gpt-6-luna`, 可在侧边栏「设置 → AI 与语音」或 AI 帮写旁的模型按钮修改 Endpoint / 部署 / **API Key** (Key 存钥匙串; 留空则用登录身份, 需 Cognitive Services OpenAI User 角色)
-- **语音输入** (v2.0): 新建描述与补充信息均可录音转写, 支持 Azure OpenAI (`gpt-4o-mini-transcribe`) 或 Azure Speech (可填 **区域 + Speech Key**)
+- **流式语音输入** (v2.5): 边说边出字, 新建描述 / 补充信息 / 回复均可用。三端 (Mac / Windows / Web·Linux) 一致:
+  - Azure OpenAI Realtime `gpt-live-transcribe` (默认, 需在资源上部署)
+  - Azure Speech 实时识别 + **Post-Stream Refinement (PSR)**: 说话时快速出中间结果, 每句结束替换为二次识别的更准确文本 (可填 **区域 + Speech Key**)
+  - 直接走 WebSocket 协议, 未引入 Speech SDK, 安装包不变大; 流式失败时自动退回整段转写 (`gpt-4o-mini-transcribe` / Speech 快速转写)
 - **支持计划**: 侧边栏显示 (如 Unified / ProDirect / Standard), 来源标注 (最近 Case 或订阅类型推断; Azure 无公开查询 API); 不支持 A/A+ 时提示
 - **新建 Case**: 选服务 → 问题类型 → 严重性 (C/B/A/A+) → 标题与描述 → 提交 (⌘↩)
   - 快捷入口: 配额申请、计费/订阅、Azure OpenAI、Microsoft Foundry 及最近使用的服务

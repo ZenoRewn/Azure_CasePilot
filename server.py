@@ -52,7 +52,7 @@ SERVER_BLOCKED = {"login/cli", "login/device/start", "login/device/poll", "login
 
 # ---------------------------------------------------------------- HTTP
 
-STATIC_FILES = {**{f"/js/{n}.js": "text/javascript; charset=utf-8" for n in ("core", "auth", "create", "history", "detail", "ai", "main")},
+STATIC_FILES = {**{f"/js/{n}.js": "text/javascript; charset=utf-8" for n in ("core", "auth", "create", "history", "detail", "ai", "main", "pcm-worklet")},
                 "/style.css": "text/css; charset=utf-8",
                 "/logo.png": "image/png", "/favicon.ico": "image/png"}
 
@@ -162,6 +162,9 @@ ROUTES = {
     "close": lambda r: close_ticket(r["tenantId"], r.get("subscriptionId"), r.get("name")),
     "ai/draft": service.ai_draft,
     "ai/transcribe": service.transcribe,
+    "ai/stream/start": service.stream_start,
+    "ai/stream/push": service.stream_push,
+    "ai/stream/stop": service.stream_stop,
     "ai/config": lambda r: service.ai_config(r).public(),
     "plan": service.support_plan,
     "reply": lambda r: add_communication(r["tenantId"], r.get("subscriptionId"), r.get("name"),

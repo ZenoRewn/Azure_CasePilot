@@ -5,7 +5,7 @@ import Foundation
 enum STTProvider: String, Codable, CaseIterable, Identifiable {
     case azureOpenAI = "azure-openai", azureSpeech = "azure-speech"
     var id: String { rawValue }
-    var label: String { self == .azureOpenAI ? "Azure OpenAI (gpt-4o-mini-transcribe)" : "Azure Speech (快速转写)" }
+    var label: String { self == .azureOpenAI ? "Azure OpenAI (gpt-live-transcribe 流式)" : "Azure Speech (实时流式 + PSR)" }
 }
 
 struct AIConfig: Codable, Equatable {
@@ -13,7 +13,8 @@ struct AIConfig: Codable, Equatable {
     var chatDeployment = "gpt-6-luna"
     var sttProvider: STTProvider = .azureOpenAI
     var sttEndpoint = "https://westus3-azureai-service-507154.openai.azure.com"
-    var sttDeployment = "gpt-4o-mini-transcribe"
+    var sttDeployment = "gpt-4o-mini-transcribe"       // 整段转写 (流式失败时兜底)
+    var sttStreamDeployment = "gpt-live-transcribe"    // 流式转写
     var sttLanguage = "zh-CN"
     var speechRegion = ""      // 设置后 Speech 使用区域端点
 
@@ -27,6 +28,7 @@ struct AIConfig: Codable, Equatable {
         sttProvider = try c.decodeIfPresent(STTProvider.self, forKey: .sttProvider) ?? z.sttProvider
         sttEndpoint = try c.decodeIfPresent(String.self, forKey: .sttEndpoint) ?? z.sttEndpoint
         sttDeployment = try c.decodeIfPresent(String.self, forKey: .sttDeployment) ?? z.sttDeployment
+        sttStreamDeployment = try c.decodeIfPresent(String.self, forKey: .sttStreamDeployment) ?? z.sttStreamDeployment
         sttLanguage = try c.decodeIfPresent(String.self, forKey: .sttLanguage) ?? z.sttLanguage
         speechRegion = try c.decodeIfPresent(String.self, forKey: .speechRegion) ?? ""
     }

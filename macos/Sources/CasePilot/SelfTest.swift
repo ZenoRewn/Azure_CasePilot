@@ -11,6 +11,7 @@ enum SelfTest {
         else if env["CASEPILOT_MENU_TEST"] == "1" { Task { await menuTest(); exit(0) } }
         else if env["CASEPILOT_SWITCH_TEST"] == "1" { Task { await switchTest(); exit(0) } }
         else if let f = env["CASEPILOT_SP_TEST"] { Task { await spTest(f); exit(0) } }
+        else if let f = env["CASEPILOT_STREAM_TEST"] { Task { await streamTest(f); exit(0) } }
     }
 
     @MainActor static func e2e() async {
@@ -114,6 +115,27 @@ enum SelfTest {
             log("stt speech=\(try await ai.transcribe(audio))")
             AIConfig().save()
         } catch { log("ERROR \(error.localizedDescription)") }
+    }
+
+    /// 用 16kHz WAV 文件模拟麦克风, 依次验证 AOAI / Speech 流式转写
+    @MainActor static func streamTest(_ wav: String) async {
+        let store = AppStore()
+        func log(_ s: String) { print("[stream] " + s); fflush(stdout) }
+        do {
+            try await store.loginCLI()
+            let pcm = try Data(contentsOf: URL(fileURLWithPath: wav)).dropFirst(44)
+            for provider in STTProvider.allCases {
+                var c = AIConfig(); c.sttProvider = provider
+                if provider == .azureSpeech { c.sttEndpoint = "https://westus3-azureai-service-507154.cognitiveservices.azure.com" }
+                c.save()
+                let s = try await store.ai.startStream { t in print("[stream]   ~ \(t)"); fflush(stdout) }
+                for i in stride(from: pcm.startIndex, to: pcm.endIndex, by: 3200) {
+                    await s.push(Data(pcm[i..<min(i + 3200, pcm.endIndex)])); try await Task.sleep(for: .milliseconds(100))
+                }
+                log("\(provider.rawValue) = \(await s.finish())")
+            }
+        } catch { log("ERROR \(error.localizedDescription)") }
+        AIConfig().save()
     }
 
     @MainActor static func switchTest() async {

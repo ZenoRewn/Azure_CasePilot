@@ -7,6 +7,8 @@ struct MicButton: View {
     @State private var recorder = VoiceRecorder()
     @State private var busy = false
     @State private var error: String?
+    @State private var base = ""
+    @State private var live: LiveText?
 
     var body: some View {
         Button {
@@ -17,7 +19,7 @@ struct MicButton: View {
         }
         .buttonStyle(.borderless)
         .foregroundStyle(recorder.recording ? Color.red : Color.secondary)
-        .help(recorder.recording ? "结束并转写" : "语音输入")
+        .help(recorder.recording ? "结束语音输入" : "语音输入 (边说边出字)")
         .disabled(busy)
         .popover(isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
             Text(error ?? "").padding().frame(width: 300)
@@ -25,18 +27,38 @@ struct MicButton: View {
     }
 
     private func toggle() async {
-        if recorder.recording {
-            guard let audio = recorder.stop() else { return }
-            busy = true; defer { busy = false }
-            do {
-                let t = try await store.ai.transcribe(audio)
-                text = text.isEmpty ? t : text + " " + t
-            } catch { self.error = error.localizedDescription }
-        } else {
-            do { try await recorder.start() } catch { self.error = error.localizedDescription }
+        if recorder.recording { await finish() } else { await begin() }
+    }
+
+    /// 开始录音并尝试流式转写; 流式不可用时录音照常, 结束后整段转写
+    private func begin() async {
+        base = text.isEmpty ? "" : text + " "
+        let live = LiveText()
+        do {
+            try await recorder.start { chunk in Task { await live.session?.push(chunk) } }
+        } catch { self.error = error.localizedDescription; return }
+        self.live = live
+        do {
+            live.session = try await store.ai.startStream { t in Task { @MainActor in if self.recorder.recording, !t.isEmpty { self.text = self.base + t } } }
+        } catch { live.session = nil }
+    }
+
+    private func finish() async {
+        let pcm = recorder.stop()
+        busy = true; defer { busy = false; live = nil }
+        if let s = live?.session, !(await s.failed) {
+            let t = await s.finish()
+            if !t.isEmpty { text = base + t; return }
         }
+        do {
+            let t = try await store.ai.transcribe(RealtimeAudio.wav(pcm), filename: "voice.wav", mime: "audio/wav")
+            text = base + t
+        } catch { self.error = error.localizedDescription }
     }
 }
+
+/// 录音回调线程与界面共享的流式会话引用
+final class LiveText: @unchecked Sendable { var session: RealtimeSession? }
 
 /// 新建页顶部: 一句话描述 → AI 草稿 → (可选) 追问一轮
 struct AIComposer: View {

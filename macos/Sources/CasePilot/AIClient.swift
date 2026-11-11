@@ -73,23 +73,42 @@ struct AIClient {
     }
 }
 
-/// 麦克风录音 (m4a), 点击开始 / 再次点击结束
+/// 麦克风录音: 实时输出 16kHz 单声道 PCM16 块 (供流式转写), 结束时返回全部 PCM (供整段转写兜底)
 @MainActor @Observable
 final class VoiceRecorder {
-    private var recorder: AVAudioRecorder?
-    private var url: URL { FileManager.default.temporaryDirectory.appendingPathComponent("casepilot-voice.m4a") }
+    private let engine = AVAudioEngine()
+    private var pcm = Data()
     var recording = false
 
-    func start() async throws {
+    func start(onChunk: @escaping @Sendable (Data) -> Void) async throws {
         guard await AVCaptureDevice.requestAccess(for: .audio) else {
             throw AppError(message: "未获得麦克风权限。请在 系统设置 → 隐私与安全性 → 麦克风 中允许 CasePilot。")
         }
-        let r = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1])
-        r.record(); recorder = r; recording = true
+        let input = engine.inputNode, inFormat = input.outputFormat(forBus: 0)
+        guard let outFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true),
+              let converter = AVAudioConverter(from: inFormat, to: outFormat) else { throw AppError(message: "无法初始化录音格式") }
+        pcm = Data()
+        input.installTap(onBus: 0, bufferSize: 4096, format: inFormat) { [weak self] buf, _ in
+            let cap = AVAudioFrameCount(Double(buf.frameLength) * 16000 / inFormat.sampleRate) + 16
+            guard let out = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: cap) else { return }
+            var fed = false
+            converter.convert(to: out, error: nil) { _, status in
+                if fed { status.pointee = .noDataNow; return nil }
+                fed = true; status.pointee = .haveData; return buf
+            }
+            guard out.frameLength > 0, let p = out.int16ChannelData else { return }
+            let chunk = Data(bytes: p[0], count: Int(out.frameLength) * 2)
+            onChunk(chunk)
+            Task { @MainActor in self?.pcm.append(chunk) }
+        }
+        engine.prepare()
+        try engine.start()
+        recording = true
     }
 
-    func stop() -> Data? {
-        recorder?.stop(); recorder = nil; recording = false
-        return try? Data(contentsOf: url)
+    /// 停止并返回 16kHz PCM16
+    func stop() -> Data {
+        engine.inputNode.removeTap(onBus: 0); engine.stop(); recording = false
+        return pcm
     }
 }

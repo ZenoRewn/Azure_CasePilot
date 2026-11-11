@@ -16,11 +16,11 @@ $("ai-model").onclick = async () => {
   const c = { ...(await api("ai/config", { ai: aiSettings() })), ...aiSettings() };
   const f = (k, label, ph) => h("label", { class: "field" }, h("span", { class: "lbl" }, label), h("input", { class: "control", "data-k": k, value: c[k] || "", placeholder: ph || "" }));
   const prov = h("select", { class: "control", "data-k": "stt_provider" },
-    h("option", { value: "azure-openai" }, "Azure OpenAI (gpt-4o-mini-transcribe)"), h("option", { value: "azure-speech" }, "Azure Speech (快速转写)"));
+    h("option", { value: "azure-openai" }, "Azure OpenAI (gpt-live-transcribe 流式)"), h("option", { value: "azure-speech" }, "Azure Speech (实时流式 + PSR)"));
   prov.value = c.stt_provider;
   const form = h("div", { class: "grid" }, f("chat_endpoint", "对话 Endpoint", "https://<resource>.openai.azure.com"), f("chat_deployment", "对话部署名"),
     h("label", { class: "field" }, h("span", { class: "lbl" }, "语音转写服务"), prov),
-    f("stt_endpoint", "转写 Endpoint"), f("stt_deployment", "转写部署名 (Azure OpenAI)"), f("stt_language", "语言", "zh-CN"));
+    f("stt_endpoint", "转写 Endpoint"), f("stt_stream_deployment", "流式部署名 (Azure OpenAI)", "gpt-live-transcribe"), f("stt_deployment", "整段转写部署名 (兜底)"), f("speech_region", "Speech 区域 (可选)"), f("stt_language", "语言", "zh-CN"));
   const root = $("modal-root");
   const close = () => { root.innerHTML = ""; };
   const save = () => {
@@ -87,33 +87,63 @@ async function runDraft(btn, text) {
 $("ai-go").onclick = (ev) => { aiAnswers = []; runDraft(ev.currentTarget); };
 $("ai-text").onkeydown = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $("ai-go").click(); } };
 
-// ---------------------------------------------------------------- 语音: 点击开始, 再次点击结束并转写
-let recorder = null;
+// ---------------------------------------------------------------- 语音: 点击开始边说边出字 (流式), 再次点击结束
+// 浏览器采集 16kHz PCM16, 经服务端中转到 Azure OpenAI Realtime / Azure Speech (PSR); 流式失败时退回整段转写
+function toPcm16(chunks) {
+  const n = chunks.reduce((a, c) => a + c.length, 0), out = new Int16Array(n); let o = 0;
+  for (const c of chunks) for (let i = 0; i < c.length; i++) out[o++] = Math.max(-1, Math.min(1, c[i])) * 0x7fff;
+  return new Uint8Array(out.buffer);
+}
+const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
+function wav(pcm) {
+  const h = new DataView(new ArrayBuffer(44)), w = (o, t) => [...t].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); h.setUint32(4, 36 + pcm.length, true); w(8, "WAVEfmt "); h.setUint32(16, 16, true); h.setUint16(20, 1, true);
+  h.setUint16(22, 1, true); h.setUint32(24, 16000, true); h.setUint32(28, 32000, true); h.setUint16(32, 2, true); h.setUint16(34, 16, true);
+  w(36, "data"); h.setUint32(40, pcm.length, true);
+  const out = new Uint8Array(44 + pcm.length); out.set(new Uint8Array(h.buffer)); out.set(pcm, 44); return out;
+}
+
+let mic = null;
 async function toggleMic(btn) {
-  const target = $(btn.dataset.target);
-  if (recorder) { recorder.stop(); return; }
+  if (mic) { mic.stop(); return; }
+  const target = $(btn.dataset.target), base = target.value ? target.value + " " : "";
   let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }); }
   catch (_) { toast("无法访问麦克风, 请在浏览器中允许"); return; }
-  const chunks = [];
-  const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-  recorder = new MediaRecorder(stream, { mimeType: mime });
-  recorder.ondataavailable = (e) => chunks.push(e.data);
-  recorder.onstop = async () => {
-    stream.getTracks().forEach((t) => t.stop());
-    btn.classList.remove("rec"); recorder = null;
-    const blob = new Blob(chunks, { type: mime });
-    const b64 = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  await ctx.audioWorklet.addModule("/js/pcm-worklet.js");
+  const node = new AudioWorkletNode(ctx, "pcm"), all = [];
+  let pending = [], sid = null, sending = Promise.resolve(), stopped = false;
+  const show = (t) => { if (t) { target.value = base + t; target.dispatchEvent(new Event("input")); } };
+  const flush = () => {
+    if (!sid || !pending.length) return;
+    const pcm = toPcm16(pending); pending = [];
+    sending = sending.then(() => api("ai/stream/push", { id: sid, audio: b64(pcm) }).then((d) => { if (!stopped) show(d.text); }))
+      .catch(() => { sid = null; });   // 中途失败: 结束时整段转写
+  };
+  node.port.onmessage = (e) => { all.push(e.data); pending.push(e.data); };
+  ctx.createMediaStreamSource(stream).connect(node);
+  const timer = setInterval(flush, 200);
+  mic = { stop: async () => {
+    mic = null; stopped = true; clearInterval(timer);
+    stream.getTracks().forEach((t) => t.stop()); ctx.close(); btn.classList.remove("rec");
     await busy(btn, async () => {
       try {
-        const d = await api("ai/transcribe", { audio: b64, mime, filename: "voice." + mime.split("/")[1], ai: aiSettings() });
-        target.value = (target.value ? target.value + " " : "") + d.text;
-        target.dispatchEvent(new Event("input")); target.focus();
+        if (sid) { flush(); await sending; }
+        if (sid) {   // 流式结果为空 (如部署名错误时服务端静默无输出) 或出错: 退回整段转写
+          const t = await api("ai/stream/stop", { id: sid }).then((d) => d.text, () => "");
+          if (t) { show(t); return; }
+        }
+        const d = await api("ai/transcribe", { audio: b64(wav(toPcm16(all))), mime: "audio/wav", filename: "voice.wav", ai: aiSettings() });
+        show(d.text);
       } catch (e) { toast("转写失败: " + e.message); }
+      target.focus();
     });
-  };
-  recorder.start(); btn.classList.add("rec");
-  toast("正在录音, 再次点击麦克风结束");
+  } };
+  btn.classList.add("rec");
+  toast("正在聆听, 再次点击麦克风结束");
+  try { sid = (await api("ai/stream/start", { ai: aiSettings() })).id; }
+  catch (e) { toast("实时转写不可用, 将在结束后整段转写: " + e.message); }
 }
 function bindMics(root = document) { root.querySelectorAll(".mic").forEach((b) => { b.onclick = () => toggleMic(b); }); }
 bindMics();

@@ -1,6 +1,6 @@
 """Azure OpenAI / Foundry 对话与语音转写 (Azure OpenAI 或 Azure Speech), 使用 Entra ID 令牌.
 
-默认: westus3 资源上的 gpt-6-luna (reasoning_effort=none, 低延迟) 与 gpt-4o-mini-transcribe。
+默认: westus3 资源上的 gpt-6-luna (reasoning_effort=none, 低延迟) 与 gpt-live-transcribe (流式) / gpt-4o-mini-transcribe (整段)。
 均可通过环境变量或 API 参数覆盖。
 """
 import json
@@ -19,7 +19,8 @@ class AIConfig:
     reasoning_effort: str = "none"
     stt_provider: str = "azure-openai"            # azure-openai | azure-speech
     stt_endpoint: str = "https://westus3-azureai-service-507154.openai.azure.com"
-    stt_deployment: str = "gpt-4o-mini-transcribe"
+    stt_deployment: str = "gpt-4o-mini-transcribe"     # 整段转写 (流式失败时兜底)
+    stt_stream_deployment: str = "gpt-live-transcribe"  # 流式转写
     stt_language: str = "zh-CN"
     api_key: str = ""                             # AOAI / Foundry key; 为空时使用 Entra 令牌
     stt_key: str = ""                             # 转写 key (AOAI key 或 Speech key); 为空时使用 Entra 令牌
@@ -30,7 +31,7 @@ class AIConfig:
         c = AIConfig()
         m = {"CASEPILOT_AOAI_ENDPOINT": "chat_endpoint", "CASEPILOT_AOAI_DEPLOYMENT": "chat_deployment",
              "CASEPILOT_REASONING": "reasoning_effort", "CASEPILOT_STT_PROVIDER": "stt_provider",
-             "CASEPILOT_STT_ENDPOINT": "stt_endpoint", "CASEPILOT_STT_DEPLOYMENT": "stt_deployment",
+             "CASEPILOT_STT_ENDPOINT": "stt_endpoint", "CASEPILOT_STT_DEPLOYMENT": "stt_deployment", "CASEPILOT_STT_STREAM_DEPLOYMENT": "stt_stream_deployment",
              "CASEPILOT_STT_LANGUAGE": "stt_language", "CASEPILOT_AOAI_KEY": "api_key",
              "CASEPILOT_STT_KEY": "stt_key", "CASEPILOT_SPEECH_REGION": "speech_region"}
         return c.merged({f: env[k] for k, f in m.items() if env.get(k)})
