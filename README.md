@@ -107,6 +107,9 @@ RG=<rg> AKS=<aks> ACR=<acr> SUB=<订阅 ID> AOAI=<AI 资源名> AOAI_RG=<ai-rg> 
 | `deploy/` | Helm Chart 与 AKS 一键脚本 (配合根目录 `Dockerfile`) |
 | `docs/` | 部署指引、Windows 说明、UI 规范与截图 |
 
+## 验证状态
+macOS、Windows (x64 真机)、Web 均已实测: 登录、新建 / 查看 / 回复 / 关闭 Case、AI 帮写、流式语音 (AOAI 与 Speech PSR, 含中英混说)。
+
 ## 已知限制
 - 仅支持 Azure Global 云
 - 未签名: macOS 首次需 `xattr`; Windows 首次 SmartScreen 提示
