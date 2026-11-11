@@ -25,6 +25,7 @@ class Base(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.srv.server_close()
 
     def req(self, path, body=None, headers=None, host=None):
         h = {"Host": host or f"127.0.0.1:{self.port}", **(headers or {})}
@@ -33,7 +34,8 @@ class Base(unittest.TestCase):
             with urllib.request.urlopen(r) as resp:
                 return resp.status, resp.read()
         except urllib.error.HTTPError as e:
-            return e.code, e.read()
+            with e:
+                return e.code, e.read()
 
 
 class LocalModeTest(Base):

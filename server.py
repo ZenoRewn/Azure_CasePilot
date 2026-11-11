@@ -18,6 +18,9 @@ import webbrowser
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+# 嵌入式 Python (如 Azure CLI 自带, 含 ._pth) 不会自动把脚本目录加入 sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from casepilot.core import (AUTH, STATIC, ApiError, add_communication, arm_list, check_ids, close_ticket,  # noqa: F401
                             create_ticket, list_all_resources, list_problems, list_resources, list_services,
                             list_tickets, ticket_detail)
@@ -176,12 +179,32 @@ MCP = mcp.Server(context=lambda: {"tenantId": os.environ.get("CASEPILOT_TENANT_I
                                   "subscriptionId": os.environ.get("CASEPILOT_SUBSCRIPTION_ID")})
 
 
+class _Server(ThreadingHTTPServer):
+    # Windows 的 SO_REUSEADDR 允许其他进程绑定同一已占用端口 (端口劫持/静默双开)
+    allow_reuse_address = os.name != "nt"
+
+    def server_bind(self):
+        if os.name == "nt":
+            import socket
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def make_server(cfg):
     Handler.cfg = cfg
-    return ThreadingHTTPServer((cfg.host, cfg.port), Handler)
+    return _Server((cfg.host, cfg.port), Handler)
+
+
+def _safe_console():
+    """Windows 控制台/重定向常为 cp1252/cp936: 无法编码的字符替换, 避免中文日志导致启动崩溃。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            # 重定向到文件/管道时输出 UTF-8 日志; 真实控制台 (WriteConsoleW) 不受编码影响
+            stream.reconfigure(encoding="utf-8" if not stream.isatty() else None, errors="replace")
 
 
 def main():
+    _safe_console()
     cfg = Config.from_env(os.environ)
     if cfg.mode == "server":
         if os.environ.get("AZURE_FEDERATED_TOKEN_FILE"):

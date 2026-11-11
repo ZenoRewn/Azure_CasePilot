@@ -27,7 +27,7 @@ body { margin: 0; background: var(--background-full); color: var(--text-primary)
 .t-caption { font-size: 12px; line-height: 16px; }
 .t-caption-semibold { font-size: 12px; line-height: 16px; font-weight: 600; }
 .secondary { color: var(--text-secondary); } .tertiary { color: var(--text-tertiary); }
-.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 .hidden { display: none !important; }
 svg.i { width: 18px; height: 18px; flex: none; }
 

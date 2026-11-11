@@ -215,7 +215,8 @@ def _post_form(url, fields):
         with urllib.request.urlopen(req, timeout=30, context=SSL_CTX) as r:
             return json.load(r)
     except urllib.error.HTTPError as e:
-        err = _safe_json(e.read())
+        with e:
+            err = _safe_json(e.read())
         raise ApiError(401, f"{err.get('error', e.code)}: {str(err.get('error_description', ''))[:400]}")
 
 
@@ -225,13 +226,34 @@ def _jwt_claims(tok):
     return json.loads(base64.urlsafe_b64decode(seg + "=" * (-len(seg) % 4)))
 
 
+def _kill_tree(p):
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    p.kill()
+
+
 def _run_az(args, hint_tenant=None):
-    p = subprocess.run([shutil.which("az") or "az", *args, "-o", "json"], capture_output=True, text=True, timeout=60)
+    # az 在 Windows 管道输出默认用系统代码页 (cp936): 强制子进程与解码均为 UTF-8
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    # CREATE_NO_WINDOW: 无控制台宿主 (pythonw/服务) 时不弹出黑窗
+    p = subprocess.Popen([shutil.which("az") or "az", *args, "-o", "json"], stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, encoding="utf-8",
+                         errors="replace", env=env, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        stdout, stderr = p.communicate(timeout=60)
+    except subprocess.TimeoutExpired:
+        _kill_tree(p)  # az 是 .cmd 包装器: 只 kill 直接子进程会留下孤儿 python.exe
+        try:
+            p.communicate(timeout=5)  # 孙进程若仍持有管道句柄, 不能无限等待 EOF
+        except subprocess.TimeoutExpired:
+            pass
+        raise ApiError(504, "az 命令超时 (60 秒)")
     if p.returncode != 0:
-        msg = p.stderr.strip() or "az 命令失败"
+        msg = stderr.strip() or "az 命令失败"
         hint = f"az login --tenant {hint_tenant}" if hint_tenant else "az login"
         raise ApiError(401, f"Azure CLI 错误。可尝试在终端执行 `{hint}` 后重试。", msg[-800:])
-    return json.loads(p.stdout)
+    return json.loads(stdout)
 
 
 def _safe_json(raw):
@@ -257,7 +279,8 @@ def arm(method, path, tenant=None, body=None, raw=False):
             payload = _safe_json(r.read() or b"{}")
             return (r.status, dict(r.headers), payload) if raw else payload
     except urllib.error.HTTPError as e:
-        err = _safe_json(e.read()).get("error", {})
+        with e:
+            err = _safe_json(e.read()).get("error", {})
         rid = e.headers.get("x-ms-request-id") or e.headers.get("x-ms-correlation-request-id")
         raise ApiError(e.code, f"{err.get('code', e.code)}: {err.get('message', e.reason)}",
                        {"requestId": rid, "url": url.split("?")[0], "details": err.get("details")})

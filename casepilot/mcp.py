@@ -148,7 +148,15 @@ def _local_context():
     return ctx
 
 
+def _utf8_stdio(inp=None, out=None):
+    """Windows 管道默认 cp1252/cp936: MCP JSON-RPC 规定 UTF-8, 统一两端编码。"""
+    for stream in (inp or sys.stdin, out or sys.stdout):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main():
+    _utf8_stdio()
     if os.environ.get("AZURE_FEDERATED_TOKEN_FILE"):
         core.AUTH.use_workload()
     Server(_local_context()).serve()
