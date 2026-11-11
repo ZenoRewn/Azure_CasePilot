@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>CasePilot</AssemblyName>
+    <RootNamespace>CasePilot.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CasePilot.App.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CasePilot.Core\CasePilot.Core.csproj" />
+    <ProjectReference Include="..\CasePilot.Platform\CasePilot.Platform.csproj" />
+  </ItemGroup>
+</Project>

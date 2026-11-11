@@ -1,0 +1,85 @@
+<UserControl x:Class="CasePilot.App.Views.AISettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CasePilot.App.Controls"
+             xmlns:vm="clr-namespace:CasePilot.App.ViewModels">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <StackPanel MaxWidth="760" Margin="24,8,24,24">
+            <TextBlock Text="AI 与语音" Style="{StaticResource PageTitle}" Margin="0,0,0,4" />
+            <TextBlock Text="用于 AI 帮写与语音输入。Key 只保存在 Windows 凭据管理器; 留空则使用当前登录身份 (Entra ID)。"
+                       Style="{StaticResource Caption}" Margin="0,0,0,16" />
+            <c:PageBanner />
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="对话模型 (Azure OpenAI / Foundry)" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="Endpoint" Style="{StaticResource Label}" />
+                    <TextBox Text="{Binding ChatEndpoint, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource MonoFont}"
+                             c:Hint.Text="https://&lt;resource&gt;.openai.azure.com" AutomationProperties.Name="对话 Endpoint" />
+                    <TextBlock Text="Deployment" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                    <TextBox Text="{Binding ChatDeployment, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="对话 Deployment" />
+                    <TextBlock Text="API Key" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <PasswordBox x:Name="ChatKey" c:Hint.Text="留空则使用当前登录身份 (Entra ID)" PasswordChanged="ChatKeyChanged"
+                                     AutomationProperties.Name="对话 API Key" />
+                        <Button Grid.Column="1" Content="保存" Margin="8,0,0,0" MinWidth="72" Click="SaveChatKey" />
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="{Binding ChatKeyStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                        <Button Style="{StaticResource LinkButton}" Content="清除" Command="{Binding ClearChatKeyCommand}" Margin="8,0,0,0"
+                                Visibility="{Binding ChatKeyStored, Converter={StaticResource Vis}}" AutomationProperties.Name="清除对话 Key" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="语音转文字" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="服务" Style="{StaticResource Label}" />
+                    <ComboBox ItemsSource="{x:Static vm:AISettingsVM.Providers}" SelectedItem="{Binding SttProvider}" AutomationProperties.Name="语音服务">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource Disp}, ConverterParameter=stt}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <StackPanel Visibility="{Binding IsSpeech, Converter={StaticResource Vis}}">
+                        <TextBlock Text="区域" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                        <TextBox Text="{Binding SpeechRegion, UpdateSourceTrigger=PropertyChanged}" c:Hint.Text="如 eastus; 填写后忽略 Endpoint"
+                                 AutomationProperties.Name="Speech 区域" />
+                        <TextBlock Text="语言" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                        <TextBox Text="{Binding SttLanguage, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="识别语言" />
+                    </StackPanel>
+                    <TextBlock Text="Endpoint" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                    <TextBox Text="{Binding SttEndpoint, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource MonoFont}"
+                             IsEnabled="{Binding SttEndpointEnabled}" AutomationProperties.Name="语音 Endpoint" />
+                    <StackPanel Visibility="{Binding IsSpeech, Converter={StaticResource Vis}, ConverterParameter=!}">
+                        <TextBlock Text="Deployment" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                        <TextBox Text="{Binding SttDeployment, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="语音 Deployment" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding SttKeyLabel}" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <PasswordBox x:Name="SttKey" c:Hint.Text="留空则使用当前登录身份" PasswordChanged="SttKeyChanged"
+                                     AutomationProperties.Name="语音 Key" />
+                        <Button Grid.Column="1" Content="保存" Margin="8,0,0,0" MinWidth="72" Click="SaveSttKey" />
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="{Binding SttKeyStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                        <Button Style="{StaticResource LinkButton}" Content="清除" Command="{Binding ClearSttKeyCommand}" Margin="8,0,0,0"
+                                Visibility="{Binding SttKeyStored, Converter={StaticResource Vis}}" AutomationProperties.Name="清除语音 Key" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Button Content="恢复默认" HorizontalAlignment="Left" Click="Reset" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

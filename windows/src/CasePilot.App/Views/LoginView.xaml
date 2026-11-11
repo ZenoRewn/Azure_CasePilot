@@ -1,0 +1,110 @@
+<UserControl x:Class="CasePilot.App.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CasePilot.App.Controls"
+             xmlns:vm="clr-namespace:CasePilot.App.ViewModels">
+    <Grid>
+        <Border Width="480" VerticalAlignment="Center" HorizontalAlignment="Center" Background="{DynamicResource CpCardBg}"
+                BorderBrush="{DynamicResource CpCardStroke}" BorderThickness="1" CornerRadius="8" Padding="32,28">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.10" />
+            </Border.Effect>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <Border Width="32" Height="32" CornerRadius="7" Background="{DynamicResource CpAccent}">
+                        <TextBlock Text="&#xE8F2;" Style="{StaticResource Icon}" Foreground="White" HorizontalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="登录 CasePilot" Style="{StaticResource SectionTitle}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="使用 Azure 身份管理 Support Case。" Style="{StaticResource Caption}" Margin="44,0,0,20" />
+
+                <c:SegmentedControl x:Name="Tabs" SelectedIndex="{Binding Method, Converter={StaticResource EnumIndex}}" Margin="0,0,0,20"
+                                    AutomationProperties.Name="登录方式">
+                    <ListBoxItem Content="Azure CLI" />
+                    <ListBoxItem Content="浏览器登录" />
+                    <ListBoxItem Content="应用注册" />
+                </c:SegmentedControl>
+
+                <c:InfoBar Message="{Binding Error}" Severity="Warning" ActionText="重试" ActionCommand="{Binding CliCommand}" x:Name="ErrorBar" />
+
+                <!-- Azure CLI -->
+                <StackPanel x:Name="CliPanel">
+                    <TextBlock Style="{StaticResource Body}" Foreground="{DynamicResource CpTextSecondary}" Margin="0,0,0,16"
+                               Text="复用本机 Azure CLI (az login) 的登录会话, 无需再次输入密码。" />
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding Busy, Converter={StaticResource Vis}}" Margin="0,0,0,16">
+                        <ProgressBar IsIndeterminate="True" Width="120" Height="4" VerticalAlignment="Center" />
+                        <TextBlock Text="正在检测 Azure CLI 会话…" Style="{StaticResource Caption}" Margin="10,0,0,0" />
+                    </StackPanel>
+                    <Button Style="{StaticResource AccentButton}" Content="使用 Azure CLI 登录" Command="{Binding CliCommand}"
+                            HorizontalAlignment="Stretch" IsDefault="{Binding IsVisible, ElementName=CliPanel}" />
+                </StackPanel>
+
+                <!-- 浏览器登录 (设备码) -->
+                <StackPanel x:Name="DevicePanel">
+                    <TextBlock Text="云" Style="{StaticResource Label}" />
+                    <ComboBox ItemsSource="{x:Static vm:LoginVM.Clouds}" SelectedItem="{Binding Cloud}" Margin="0,0,0,16"
+                              AutomationProperties.Name="云">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource Disp}, ConverterParameter=cloud}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Border Visibility="{Binding DeviceCode, Converter={StaticResource Vis}}" Background="{DynamicResource CpInfoBg}"
+                            CornerRadius="6" Padding="16" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="在浏览器中输入以下代码 (已复制到剪贴板)" Style="{StaticResource Caption}" />
+                            <TextBox Text="{Binding DeviceCode.UserCode, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                                     FontFamily="{DynamicResource MonoFont}" FontSize="32" FontWeight="SemiBold" Margin="-4,6,0,6" Padding="0"
+                                     AutomationProperties.Name="设备代码" AutomationProperties.LiveSetting="Assertive" />
+                            <TextBlock>
+                                <Hyperlink NavigateUri="{Binding DeviceCode.VerificationUrl}" RequestNavigate="OpenLink">
+                                    <Run Text="{Binding DeviceCode.VerificationUrl, Mode=OneWay}" />
+                                </Hyperlink>
+                            </TextBlock>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <ProgressBar IsIndeterminate="True" Width="80" Height="4" VerticalAlignment="Center" />
+                                <TextBlock Text="等待浏览器完成登录…" Style="{StaticResource Caption}" Margin="8,0,16,0" />
+                                <Button Style="{StaticResource LinkButton}" Content="取消" Command="{Binding CancelDeviceCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Button Style="{StaticResource AccentButton}" Content="获取登录代码" Command="{Binding DeviceCommand}"
+                            HorizontalAlignment="Stretch" IsDefault="{Binding IsVisible, ElementName=DevicePanel}"
+                            Visibility="{Binding DeviceCode, Converter={StaticResource Vis}, ConverterParameter=!}" />
+                </StackPanel>
+
+                <!-- 应用注册 -->
+                <StackPanel x:Name="SpPanel">
+                    <TextBlock Text="Tenant ID" Style="{StaticResource Label}" />
+                    <TextBox Text="{Binding SpTenant, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource MonoFont}"
+                             c:Hint.Text="00000000-0000-0000-0000-000000000000" AutomationProperties.Name="Tenant ID" />
+                    <TextBlock Text="须为 GUID" Style="{StaticResource Caption}" Foreground="{DynamicResource CpCritical}" Margin="0,4,0,0"
+ x:Name="TenantErr" Visibility="Collapsed" />
+                    <TextBlock Text="Client ID" Style="{StaticResource Label}" Margin="0,12,0,6" />
+                    <TextBox Text="{Binding SpClient, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource MonoFont}"
+                             c:Hint.Text="00000000-0000-0000-0000-000000000000" AutomationProperties.Name="Client ID" />
+                    <TextBlock Text="须为 GUID" Style="{StaticResource Caption}" Foreground="{DynamicResource CpCritical}" Margin="0,4,0,0"
+ x:Name="ClientErr" Visibility="Collapsed" />
+                    <TextBlock Text="Client Secret" Style="{StaticResource Label}" Margin="0,12,0,6" />
+                    <PasswordBox x:Name="Secret" PasswordChanged="Secret_Changed" AutomationProperties.Name="Client Secret" />
+                    <Grid Margin="0,12,0,0">
+                        <CheckBox Content="保存到凭据管理器" IsChecked="{Binding SaveSecret}" VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{x:Static vm:LoginVM.Clouds}" SelectedItem="{Binding SpCloud}" HorizontalAlignment="Right" Width="170"
+                                  AutomationProperties.Name="云">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource Disp}, ConverterParameter=cloud}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,16"
+                               Text="需要在订阅上为该应用分配 Support Request Contributor (或 Contributor) 角色。" />
+                    <Button Style="{StaticResource AccentButton}" Content="登录" Command="{Binding SpCommand}"
+                            HorizontalAlignment="Stretch" IsDefault="{Binding IsVisible, ElementName=SpPanel}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

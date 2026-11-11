@@ -1,0 +1,51 @@
+<UserControl x:Class="CasePilot.App.Views.ContactView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CasePilot.App.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <StackPanel MaxWidth="760" Margin="24,8,24,24">
+            <TextBlock Text="联系人" Style="{StaticResource PageTitle}" Margin="0,0,0,4" />
+            <TextBlock Text="创建 Case 时提交给 Microsoft 支持。修改后自动保存。" Style="{StaticResource Caption}" Margin="0,0,0,16" />
+            <c:PageBanner />
+            <c:InfoBar Message="请填写姓、名与有效邮箱; 首选电话联系时需填写电话。" Severity="Warning"
+                       Visibility="{Binding IsValid, Converter={StaticResource Vis}, ConverterParameter=!}" x:Name="Invalid" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <UniformGrid Columns="2">
+                        <StackPanel Margin="0,0,8,16">
+                            <TextBlock Text="姓" Style="{StaticResource Label}" />
+                            <TextBox Text="{Binding LastName, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="姓" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,16">
+                            <TextBlock Text="名" Style="{StaticResource Label}" />
+                            <TextBox Text="{Binding FirstName, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="名" />
+                        </StackPanel>
+                    </UniformGrid>
+                    <TextBlock Text="邮箱" Style="{StaticResource Label}" />
+                    <TextBox Text="{Binding Email, UpdateSourceTrigger=LostFocus}" c:Hint.Text="name@contoso.com" AutomationProperties.Name="邮箱" Margin="0,0,0,16" />
+                    <TextBlock Text="抄送 (可选, 逗号分隔)" Style="{StaticResource Label}" />
+                    <TextBox Text="{Binding Cc, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="抄送" Margin="0,0,0,16" />
+                    <TextBlock Text="电话" Style="{StaticResource Label}" />
+                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=LostFocus}" c:Hint.Text="{Binding PhonePlaceholder}" AutomationProperties.Name="电话" />
+                    <CheckBox Content="首选电话联系" IsChecked="{Binding PreferPhone}" Margin="0,10,0,16" />
+                    <UniformGrid Columns="3">
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="语言" Style="{StaticResource Label}" />
+                            <ComboBox ItemsSource="{Binding Languages}" DisplayMemberPath="Value" SelectedValuePath="Key" SelectedValue="{Binding Language}"
+                                      AutomationProperties.Name="语言" />
+                        </StackPanel>
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="国家 / 地区" Style="{StaticResource Label}" />
+                            <ComboBox ItemsSource="{Binding Countries}" DisplayMemberPath="Value" SelectedValuePath="Key" SelectedValue="{Binding Country}"
+                                      AutomationProperties.Name="国家或地区" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="时区" Style="{StaticResource Label}" />
+                            <ComboBox ItemsSource="{Binding TimeZones}" SelectedItem="{Binding TimeZone}" AutomationProperties.Name="时区" />
+                        </StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

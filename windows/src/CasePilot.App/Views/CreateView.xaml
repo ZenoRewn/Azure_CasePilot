@@ -1,0 +1,269 @@
+<UserControl x:Class="CasePilot.App.Views.CreateView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CasePilot.App.Controls"
+             xmlns:vm="clr-namespace:CasePilot.App.ViewModels">
+    <UserControl.InputBindings>
+        <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding Create.SubmitCommand}" />
+    </UserControl.InputBindings>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="64" />
+        </Grid.RowDefinitions>
+        <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <StackPanel MaxWidth="760" Margin="24,8,24,24" DataContext="{Binding Create}">
+                <TextBlock Text="新建 Case" Style="{StaticResource PageTitle}" Margin="0,0,0,16" />
+                <c:PageBanner />
+
+                <!-- 1. AI 帮写 -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,8,0" />
+                                <TextBlock Text="AI 帮写" Style="{StaticResource Label}" Margin="0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <Button HorizontalAlignment="Right" Style="{StaticResource SubtleButton}" Click="OpenAISettings"
+                                    ToolTip="打开 设置 → AI 与语音" AutomationProperties.Name="AI 设置">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding AiSettingsLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="12" Margin="6,0,0,0" Foreground="{DynamicResource CpTextSecondary}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="AiBox" Text="{Binding AiText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap"
+                                     MinHeight="64" MaxHeight="140" VerticalScrollBarVisibility="Auto"
+                                     c:Hint.Text="一两句话描述问题, 如: 东南亚 gpt-6-luna 下午开始一直 429, 配额没用满"
+                                     AutomationProperties.Name="问题描述 (AI 帮写)">
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding GenerateCommand}" />
+                                </TextBox.InputBindings>
+                            </TextBox>
+                            <c:MicButton Grid.Column="1" Target="{Binding ElementName=AiBox}" Margin="6,0,0,0" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Questions}" Margin="0,12,0,0" Visibility="{Binding Questions.Count, Converter={StaticResource Vis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Text="{Binding Question}" Style="{StaticResource Body}" Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding Answer, UpdateSourceTrigger=PropertyChanged}" c:Hint.Text="回答 (可留空)"
+                                                 AutomationProperties.Name="{Binding Question}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <DockPanel Margin="0,12,0,0" LastChildFill="False">
+                            <Button Style="{StaticResource AccentButton}" Command="{Binding GenerateCommand}" ToolTip="Ctrl+Enter">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,8,0" Foreground="White" />
+                                    <TextBlock Text="{Binding GenerateLabel}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SubtleButton}" Content="跳过" Command="{Binding SkipCommand}" Margin="8,0,0,0"
+                                    Visibility="{Binding Questions.Count, Converter={StaticResource Vis}}" />
+                            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" Visibility="{Binding AiBusy, Converter={StaticResource Vis}}">
+                                <ProgressBar IsIndeterminate="True" Width="80" Height="4" VerticalAlignment="Center" />
+                                <TextBlock Text="AI 正在生成草稿…" Style="{StaticResource Caption}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+                        <c:InfoBar x:Name="AiInfo" Margin="0,12,0,0" Message="{Binding AiStatus}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 2. 服务与问题 -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="服务与问题" Style="{StaticResource SectionTitle}" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <c:ServiceSearchBox x:Name="SvcSearch" Services="{Binding DataContext.Shell.Services, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Selected="{Binding Service, Mode=OneWay}" />
+                            <Button Grid.Column="1" Style="{StaticResource SubtleButton}" Margin="8,0,0,0" Click="PickFromResource"
+                                    ToolTip="选择出问题的资源, 再选择对应的支持服务" AutomationProperties.Name="从资源选择">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE71D;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,6,0" />
+                                    <TextBlock Text="从资源选择" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding QuickServices}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource Chip}" Content="{Binding Label}" Click="QuickPick" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Visibility="{Binding RecentItems.Count, Converter={StaticResource Vis}}" Margin="0,2,0,8">
+                            <TextBlock Text="最近使用" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                            <ItemsControl ItemsSource="{Binding RecentItems}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Click="ReusePick" ToolTip="{Binding Label}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE81C;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,6,0" />
+                                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" MaxWidth="640" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <TextBlock Text="问题类型" Style="{StaticResource Label}" Margin="0,4,0,6" />
+                        <ComboBox ItemsSource="{Binding Problems}" SelectedItem="{Binding Problem}" DisplayMemberPath="DisplayName"
+                                  c:Hint.Text="{Binding ProblemPlaceholder}" AutomationProperties.Name="问题类型" />
+                        <!-- 配额明细 -->
+                        <Border Visibility="{Binding IsVmQuota, Converter={StaticResource Vis}}" Margin="0,12,0,0" Padding="16,12"
+                                Background="{DynamicResource CpInfoBg}" CornerRadius="6">
+                            <StackPanel>
+                                <TextBlock Text="配额明细" Style="{StaticResource Label}" />
+                                <UniformGrid Columns="3">
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Text="区域" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding QuotaRegion, UpdateSourceTrigger=PropertyChanged}" c:Hint.Text="eastus" AutomationProperties.Name="区域" />
+                                    </StackPanel>
+                                    <StackPanel Margin="4,0">
+                                        <TextBlock Text="VM 系列" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding QuotaFamily, UpdateSourceTrigger=PropertyChanged}" c:Hint.Text="standardDSv5Family" AutomationProperties.Name="VM 系列" />
+                                    </StackPanel>
+                                    <StackPanel Margin="8,0,0,0">
+                                        <TextBlock Text="新上限 (vCPU)" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding QuotaLimit, UpdateSourceTrigger=PropertyChanged}" c:Hint.Text="100" PreviewTextInput="DigitsOnly"
+                                                 AutomationProperties.Name="新上限" />
+                                    </StackPanel>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- 3. 严重性 -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="严重性" Style="{StaticResource SectionTitle}" />
+                        <c:SegmentedControl ItemsSource="{x:Static vm:CreateCaseVM.Severities}" SelectedItem="{Binding Severity}"
+                                            AutomationProperties.Name="严重性">
+                            <c:SegmentedControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock MinWidth="48" TextAlignment="Center">
+                                        <Run Text="{Binding Mode=OneWay, Converter={StaticResource Disp}, ConverterParameter=level}" FontWeight="SemiBold" />
+                                        <Run Text="{Binding Mode=OneWay, Converter={StaticResource Disp}, ConverterParameter=sevTitle}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </c:SegmentedControl.ItemTemplate>
+                        </c:SegmentedControl>
+                        <TextBlock Text="{Binding SeverityCaption}" Style="{StaticResource Caption}" Margin="0,8,0,0" />
+                        <c:InfoBar Message="{Binding OverPlanText}" Severity="Warning" Margin="0,12,0,0"
+                                   Visibility="{Binding OverPlan, Converter={StaticResource Vis}}" x:Name="OverPlanBar" />
+                        <CheckBox Content="需要 24×7 响应" IsChecked="{Binding Require24x7}" Margin="0,12,0,0"
+                                  Visibility="{Binding Can24x7, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 4. 描述 -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="描述" Style="{StaticResource SectionTitle}" />
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="标题" Style="{StaticResource Label}" Margin="0" />
+                            <TextBlock Text="{Binding TitleCounter}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                        </Grid>
+                        <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" MaxLength="200" c:Hint.Text="一句话概括问题"
+                                 AutomationProperties.Name="标题" />
+                        <Grid Margin="0,16,0,6">
+                            <TextBlock Text="详细描述" Style="{StaticResource Label}" Margin="0" VerticalAlignment="Center" />
+                            <Button HorizontalAlignment="Right" Style="{StaticResource LinkButton}" Command="{Binding TemplateCommand}"
+                                    ToolTip="插入【现象】【业务影响】… 模板">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A5;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,6,0" />
+                                    <TextBlock Text="插入模板" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="DescBox" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                                     TextWrapping="Wrap" MinHeight="200" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                     c:Hint.Text="现象、影响、时间、错误信息与已尝试的排查 (≥20 字)" AutomationProperties.Name="详细描述" />
+                            <c:MicButton Grid.Column="1" Target="{Binding ElementName=DescBox}" Margin="6,0,0,0" />
+                        </Grid>
+                        <StackPanel Visibility="{Binding Resources.Count, Converter={StaticResource Vis}}" Margin="0,16,0,0">
+                            <TextBlock Text="关联资源 (可选)" Style="{StaticResource Label}" />
+                            <ComboBox ItemsSource="{Binding Resources}" SelectedValuePath="Id" SelectedValue="{Binding ResourceId}"
+                                      c:Hint.Text="不关联资源" AutomationProperties.Name="关联资源">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock Text="{Binding Location, StringFormat='  · {0}'}" Foreground="{DynamicResource CpTextSecondary}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <WrapPanel Margin="0,16,0,0">
+                            <CheckBox Content="指定问题开始时间" IsChecked="{Binding UseStart}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <DatePicker x:Name="StartDate" Width="150" IsEnabled="{Binding UseStart}" SelectedDateChanged="StartChanged" AutomationProperties.Name="开始日期" />
+                            <TextBox x:Name="StartTime" Width="72" Margin="8,0,0,0" Text="09:00" IsEnabled="{Binding UseStart}" TextChanged="StartChanged"
+                                     FontFamily="{DynamicResource MonoFont}" AutomationProperties.Name="开始时间 (HH:mm)" />
+                        </WrapPanel>
+                        <CheckBox Content="允许 Microsoft 收集诊断信息" IsChecked="{Binding Consent}" Margin="0,12,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 5. 联系人 -->
+                <Border x:Name="ContactCard" Style="{StaticResource Card}">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="联系人" Style="{StaticResource Label}" />
+                            <TextBlock Text="{Binding ContactSummary}" Style="{StaticResource Body}" Foreground="{DynamicResource CpTextSecondary}" />
+                        </StackPanel>
+                        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource LinkButton}" Content="编辑" Click="EditContact"
+                                AutomationProperties.Name="编辑联系人" />
+                    </Grid>
+                </Border>
+
+                <c:InfoBar x:Name="ResultBar" Message="{Binding ResultText}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部操作栏: 固定, 不透明 -->
+        <Border Grid.Row="1" Background="{DynamicResource CpCardBg}" BorderBrush="{DynamicResource CpDivider}" BorderThickness="0,1,0,0">
+            <Grid MaxWidth="808" Margin="24,0" DataContext="{Binding Create}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="CheckIcon" Style="{StaticResource Icon}" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding MissingText}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="440"
+                               AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Style="{StaticResource SubtleButton}" Click="Preview" Margin="0,0,8,0" Padding="12,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE943;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,6,0" />
+                            <TextBlock Text="预览请求体" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource AccentButton}" Command="{Binding SubmitCommand}" ToolTip="Ctrl+Enter">
+                        <StackPanel Orientation="Horizontal">
+                            <ProgressBar IsIndeterminate="True" Width="16" Height="4" Margin="0,0,8,0" Visibility="{Binding Submitting, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="提交 Case" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

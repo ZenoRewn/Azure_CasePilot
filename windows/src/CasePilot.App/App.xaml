@@ -1,0 +1,19 @@
+<Application x:Class="CasePilot.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CasePilot.App.Controls"
+             ThemeMode="Light"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <c:VisConverter x:Key="Vis" />
+            <c:NotConverter x:Key="Not" />
+            <c:EnumIndexConverter x:Key="EnumIndex" />
+            <c:EnumEqualsConverter x:Key="EnumEq" />
+            <c:DisplayConverter x:Key="Disp" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
