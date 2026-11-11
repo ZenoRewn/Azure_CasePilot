@@ -8,6 +8,9 @@ public enum SttProvider { AzureOpenAI, AzureSpeech }
 
 public enum AIKind { Chat, Stt }
 
+/// <summary>AI 调用的认证方式: 当前登录身份 (Entra ID) 或 API Key.</summary>
+public enum AIAuth { Entra, Key }
+
 public static class SttProviderExtensions
 {
     public static string ApiValue(this SttProvider p) => p == SttProvider.AzureSpeech ? "azure-speech" : "azure-openai";
@@ -37,6 +40,16 @@ public sealed record AIConfig
     public string SttLanguage { get; init; } = "zh-CN";
     /// <summary>设置后 Speech 使用区域端点.</summary>
     public string SpeechRegion { get; init; } = "";
+    /// <summary>null = 旧版设置未选择, 由 <see cref="Migrated"/> 按已存 Key 推断.</summary>
+    public AIAuth? ChatAuth { get; init; }
+    public AIAuth? SttAuth { get; init; }
+
+    /// <summary>旧设置: 已存 Key → Key, 否则 Entra (升级后行为不变); 已显式选择的保持不变.</summary>
+    public AIConfig Migrated(Abstractions.ISecretStore secrets) => this with
+    {
+        ChatAuth = ChatAuth ?? (string.IsNullOrEmpty(secrets.Read(AIClient.ChatKeyTarget)) ? AIAuth.Entra : AIAuth.Key),
+        SttAuth = SttAuth ?? (string.IsNullOrEmpty(secrets.Read(AIClient.SttKeyTarget)) ? AIAuth.Entra : AIAuth.Key),
+    };
 
     public AIConfig Trimmed() => this with { ChatEndpoint = TrimEndpoint(ChatEndpoint), SttEndpoint = TrimEndpoint(SttEndpoint) };
 
@@ -62,6 +75,8 @@ public sealed record AIConfig
             SttStreamDeployment = Str("sttStreamDeployment", d.SttStreamDeployment),
             SttLanguage = Str("sttLanguage", d.SttLanguage),
             SpeechRegion = Str("speechRegion", d.SpeechRegion),
+            ChatAuth = ParseAuth(Str("chatAuth", "")),
+            SttAuth = ParseAuth(Str("sttAuth", "")),
         };
     }
 
@@ -75,7 +90,28 @@ public sealed record AIConfig
         ["sttStreamDeployment"] = SttStreamDeployment,
         ["sttLanguage"] = SttLanguage,
         ["speechRegion"] = SpeechRegion,
+        ["chatAuth"] = AuthValue(ChatAuth),
+        ["sttAuth"] = AuthValue(SttAuth),
     }.ToJsonString();
+
+    static AIAuth? ParseAuth(string v) => v switch { "entra" => AIAuth.Entra, "key" => AIAuth.Key, _ => null };
+    static string? AuthValue(AIAuth? a) => a switch { AIAuth.Entra => "entra", AIAuth.Key => "key", _ => null };
+}
+
+public static class AIKeys
+{
+    /// <summary>实际使用的 Key: 仅 Key 模式且已保存时返回; Entra 模式忽略已存 Key (不删除).</summary>
+    public static string? Effective(AIConfig c, AIKind kind, Abstractions.ISecretStore secrets)
+    {
+        var auth = kind == AIKind.Chat ? c.ChatAuth : c.SttAuth;
+        var key = secrets.Read(kind == AIKind.Chat ? AIClient.ChatKeyTarget : AIClient.SttKeyTarget);
+        // 未迁移 (null) 时沿用旧行为: 有 Key 用 Key
+        return auth == AIAuth.Entra || string.IsNullOrEmpty(key) ? null : key;
+    }
+
+    /// <summary>登录身份调用所需的 RBAC 角色.</summary>
+    public static string Role(AIConfig c, AIKind kind) =>
+        kind == AIKind.Stt && c.SttProvider == SttProvider.AzureSpeech ? "Cognitive Services User" : "Cognitive Services OpenAI User";
 }
 
 public static class AIHeaders

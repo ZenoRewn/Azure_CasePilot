@@ -497,7 +497,39 @@ public class SettingsVMTests
         Assert.AreEqual("已保存 ●●●●", vm.ChatKeyStatus);
         vm.ClearChatKey();
         Assert.IsNull(secrets.Read(AIClient.ChatKeyTarget));
-        Assert.AreEqual("未设置 · 使用登录身份 (Entra ID)", vm.ChatKeyStatus);
+        Assert.AreEqual("未设置", vm.ChatKeyStatus);
+    }
+
+    [TestMethod]
+    public void AISettings_AuthMode_MigratesAndSwitches()
+    {
+        var settings = new FakeSettings(); var secrets = new FakeSecrets();
+        secrets.Write(AIClient.SttKeyTarget, "s");
+        var vm = new AISettingsVM(settings, secrets, user: () => "a@contoso.com");
+        Assert.AreEqual(AIAuth.Entra, vm.ChatAuth);
+        Assert.AreEqual(AIAuth.Key, vm.SttAuth);          // 旧版已存 Key → Key 模式
+        Assert.AreEqual(AIAuth.Key, AISettingsVM.Load(settings).SttAuth);
+        Assert.AreEqual("以 a@contoso.com 调用 · 需要 Cognitive Services OpenAI User 角色", vm.ChatEntraHint);
+        vm.SttProvider = SttProvider.AzureSpeech;
+        StringAssert.Contains(vm.SttEntraHint, "Cognitive Services User");
+        vm.SttAuth = AIAuth.Entra;
+        Assert.AreEqual("s", secrets.Read(AIClient.SttKeyTarget)); // 切到 Entra 不删除 Key
+        vm.ChatKeyInput = "k"; vm.SaveChatKey();
+        Assert.AreEqual(AIAuth.Key, vm.ChatAuth);
+    }
+
+    [TestMethod]
+    public async Task AISettings_TestConnection_ReportsSuccessAndRoleHint()
+    {
+        var vm = new AISettingsVM(new FakeSettings(), new FakeSecrets(),
+            chatProbe: _ => Task.CompletedTask,
+            sttProbe: _ => throw new AppError("AI 服务错误 403: \n详情", status: 403));
+        await vm.ProbeAsync(_ => Task.CompletedTask, AIKind.Chat);
+        Assert.IsTrue(vm.ChatTestOk);
+        Assert.AreEqual("连接成功", vm.ChatTest);
+        await vm.ProbeAsync(_ => throw new AppError("AI 服务错误 403: ", status: 403), AIKind.Stt);
+        Assert.IsFalse(vm.SttTestOk);
+        StringAssert.Contains(vm.SttTest, "缺少 Cognitive Services OpenAI User 角色");
     }
 
     [TestMethod]

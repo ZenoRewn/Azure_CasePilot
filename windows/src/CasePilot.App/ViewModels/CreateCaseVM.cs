@@ -141,6 +141,10 @@ public sealed class CreateCaseVM : ObservableObject
     public bool Can24x7 => Severity.IsHigh();
     public string SeverityCaption => Severity.Detail();
     public bool OverPlan => Severity.IsHigh() && _shell.Plan.AllowsCritical == false;
+    public string PlanBadge => _shell.Plan.Name is { } n ? $"支持计划: {n}" : "支持计划未知";
+    public string PlanTooltip => _shell.Plan.Name is null ? "Azure 无公开 API 查询支持计划; 该订阅暂无可推断的 Case 或订阅类型" : _shell.Plan.SourceLabel;
+    /// <summary>accent / neutral / warning</summary>
+    public string PlanBadgeKind => OverPlan ? "warning" : _shell.Plan.Name is null ? "neutral" : "accent";
     public string OverPlanText => "当前支持计划不支持该级别";
 
     // ---- 描述 ----
@@ -285,7 +289,7 @@ public sealed class CreateCaseVM : ObservableObject
     public string AiSettingsLabel { get => _aiSettingsLabel; private set => Set(ref _aiSettingsLabel, value); }
 
     public void RefreshAiLabel() =>
-        AiSettingsLabel = $"{_config().ChatDeployment} · {(string.IsNullOrEmpty(_secrets.Read(AIClient.ChatKeyTarget)) ? "登录身份" : "API Key")}";
+        AiSettingsLabel = $"{_config().ChatDeployment} · {(AIKeys.Effective(_config(), AIKind.Chat, _secrets) is null ? "登录身份" : "API Key")}";
 
     public async Task GenerateAsync()
     {

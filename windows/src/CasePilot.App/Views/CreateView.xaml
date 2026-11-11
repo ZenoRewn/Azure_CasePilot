@@ -79,7 +79,10 @@
                 <!-- 2. 服务与问题 -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="服务与问题" Style="{StaticResource SectionTitle}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8EC;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,8,12" FontSize="14" />
+                            <TextBlock Text="服务与问题" Style="{StaticResource SectionTitle}" />
+                        </StackPanel>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -151,7 +154,19 @@
                 <!-- 3. 严重性 -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="严重性" Style="{StaticResource SectionTitle}" />
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{DynamicResource CpAccent}" Margin="0,0,8,12" FontSize="14" />
+                                <TextBlock Text="严重性" Style="{StaticResource SectionTitle}" />
+                            </StackPanel>
+                            <!-- 支持计划徽章: 蓝色 = 已知, 灰色 = 未知, 橙色 = 所选级别超出计划 -->
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="11" Padding="10,2" Height="22"
+                                    Background="{Binding PlanBadgeKind, Converter={StaticResource PlanBg}}"
+                                    ToolTip="{Binding PlanTooltip}" AutomationProperties.Name="{Binding PlanBadge}">
+                                <TextBlock Text="{Binding PlanBadge}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                                           Foreground="{Binding PlanBadgeKind, Converter={StaticResource PlanFg}}" />
+                            </Border>
+                        </Grid>
                         <c:SegmentedControl ItemsSource="{x:Static vm:CreateCaseVM.Severities}" SelectedItem="{Binding Severity}"
                                             AutomationProperties.Name="严重性">
                             <c:SegmentedControl.ItemTemplate>
@@ -259,6 +274,7 @@
                     <Button Style="{StaticResource AccentButton}" Command="{Binding SubmitCommand}" ToolTip="Ctrl+Enter">
                         <StackPanel Orientation="Horizontal">
                             <ProgressBar IsIndeterminate="True" Width="16" Height="4" Margin="0,0,8,0" Visibility="{Binding Submitting, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="&#xE724;" Style="{StaticResource Icon}" Foreground="White" FontSize="14" Margin="0,0,8,0" />
                             <TextBlock Text="提交 Case" />
                         </StackPanel>
                     </Button>
