@@ -58,7 +58,9 @@
                     <TextBox Text="{Binding SttEndpoint, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource MonoFont}"
                              IsEnabled="{Binding SttEndpointEnabled}" AutomationProperties.Name="语音 Endpoint" />
                     <StackPanel Visibility="{Binding IsSpeech, Converter={StaticResource Vis}, ConverterParameter=!}">
-                        <TextBlock Text="Deployment" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                        <TextBlock Text="流式部署名" Style="{StaticResource Label}" Margin="0,16,0,6" />
+                        <TextBox Text="{Binding SttStreamDeployment, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="流式部署名" />
+                        <TextBlock Text="整段转写部署名 (流式失败时使用)" Style="{StaticResource Label}" Margin="0,16,0,6" />
                         <TextBox Text="{Binding SttDeployment, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="语音 Deployment" />
                     </StackPanel>
                     <TextBlock Text="{Binding SttKeyLabel}" Style="{StaticResource Label}" Margin="0,16,0,6" />

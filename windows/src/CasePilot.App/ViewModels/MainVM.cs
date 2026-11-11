@@ -1,5 +1,6 @@
 using CasePilot.App.Mvvm;
 using CasePilot.Core.Abstractions;
+using CasePilot.Core.AI;
 using CasePilot.Core.Auth;
 using CasePilot.Core.Models;
 using CasePilot.Core.Support;
@@ -9,7 +10,8 @@ namespace CasePilot.App.ViewModels;
 /// <summary>组合根传入的依赖 (真实: Platform 服务; 快照 / 测试: 假实现).</summary>
 public sealed record AppDeps(
     ISupportApi Api, ILoginService Auth, ISettingsStore Settings, ISecretStore Secrets, IShell Os, IDialogs Dialogs,
-    IDelay Delay, IChat Chat, IAudioRecorder Recorder, ITranscriber Transcriber, string PythonPath, string RepoPath);
+    IDelay Delay, IChat Chat, IAudioRecorder Recorder, ITranscriber Transcriber, string PythonPath, string RepoPath,
+    IStreamingTranscriber? Streaming = null);
 
 /// <summary>主窗口: 组合各页面 ViewModel, 处理详情面板、Toast、范围选择与快捷键.</summary>
 public sealed class MainVM : ObservableObject
@@ -144,5 +146,5 @@ public sealed class MainVM : ObservableObject
     public AsyncRelayCommand RetryCommand { get; }
     public RelayCommand<LoginMethod?> LogoutCommand { get; }
 
-    public MicVM NewMic(Action<string> insert) => new(_d.Recorder, _d.Transcriber, insert, _d.Os);
+    public MicVM NewMic(Action<string> insert, Action<string?>? preview = null) => new(_d.Recorder, _d.Transcriber, insert, _d.Os, _d.Streaming, preview);
 }

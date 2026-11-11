@@ -14,8 +14,8 @@ namespace CasePilot.App.Controls;
 /// <summary>麦克风按钮: 空闲 E720 → 录音 (红色 + 计时) → 转写中. 结果插入到 Target 光标处.</summary>
 public sealed class MicButton : Button
 {
-    /// <summary>组合根设置: 由插入回调创建 MicVM. 未设置 (设计 / 快照) 时按钮禁用.</summary>
-    public static Func<Action<string>, MicVM>? Factory { get; set; }
+    /// <summary>组合根设置: 由插入回调与流式预览回调创建 MicVM. 未设置 (设计 / 快照) 时按钮禁用.</summary>
+    public static Func<Action<string>, Action<string?>, MicVM>? Factory { get; set; }
 
     public static readonly DependencyProperty TargetProperty = DependencyProperty.Register(
         nameof(Target), typeof(TextBox), typeof(MicButton));
@@ -27,6 +27,7 @@ public sealed class MicButton : Button
     private readonly Popup _popup = new() { StaysOpen = false, Placement = PlacementMode.Bottom, AllowsTransparency = true };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private MicVM? _vm;
+    private (string Text, int Caret)? _base;
 
     public MicButton()
     {
@@ -49,10 +50,26 @@ public sealed class MicButton : Button
         {
             if (_vm is not null) return;
             if (Factory is null) { IsEnabled = false; return; }
-            _vm = Factory(Insert);
+            _vm = Factory(Insert, Preview);
             _vm.PropertyChanged += OnVm;
             Command = _vm.ToggleCommand;
         };
+    }
+
+    /// <summary>流式中间结果: 在录音开始时的光标处临时显示; null 时恢复原文本 (随后由 Insert 写入最终结果).</summary>
+    void Preview(string? text)
+    {
+        if (Target is not { } tb) return;
+        if (text is null)
+        {
+            if (_base is { } b0) { tb.Text = b0.Text; tb.CaretIndex = b0.Caret; }
+            _base = null;
+            return;
+        }
+        var b = _base ??= (tb.Text, tb.CaretIndex);
+        var (t, caret) = MicVM.InsertAt(b.Text, b.Caret, text);
+        tb.Text = t;
+        tb.CaretIndex = caret;
     }
 
     void Insert(string text)

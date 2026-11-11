@@ -1,11 +1,15 @@
 using CasePilot.App.Mvvm;
 using CasePilot.Core.Abstractions;
+using CasePilot.Core.AI;
 
 namespace CasePilot.App.ViewModels;
 
 public enum MicState { Idle, Recording, Transcribing }
 
-/// <summary>麦克风按钮: 点击开始录音, 再次点击结束并转写, 结果插入到光标处.</summary>
+/// <summary>
+/// 麦克风按钮: 点击开始录音, 再次点击结束并转写, 结果插入到光标处.
+/// 配置流式转写时录音中通过 preview 实时显示中间结果; 流式失败则录完后退回整段转写.
+/// </summary>
 public sealed class MicVM : ObservableObject
 {
     public const string PrivacyUrl = "ms-settings:privacy-microphone";
@@ -14,11 +18,16 @@ public sealed class MicVM : ObservableObject
     private readonly ITranscriber _transcriber;
     private readonly Action<string> _insert;
     private readonly IShell? _os;
+    private readonly IStreamingTranscriber? _streaming;
+    private readonly Action<string?>? _preview;
+    private IStreamSession? _session;
     private DateTimeOffset _started;
 
-    public MicVM(IAudioRecorder recorder, ITranscriber transcriber, Action<string> insert, IShell? os = null)
+    /// <param name="preview">流式中间结果 (原文本 + 当前识别文本); null 表示清除预览.</param>
+    public MicVM(IAudioRecorder recorder, ITranscriber transcriber, Action<string> insert, IShell? os = null,
+        IStreamingTranscriber? streaming = null, Action<string?>? preview = null)
     {
-        (_recorder, _transcriber, _insert, _os) = (recorder, transcriber, insert, os);
+        (_recorder, _transcriber, _insert, _os, _streaming, _preview) = (recorder, transcriber, insert, os, streaming, preview);
         ToggleCommand = new AsyncRelayCommand(ToggleAsync, () => State != MicState.Transcribing);
         OpenPrivacyCommand = new RelayCommand(() => _os?.OpenUrl(PrivacyUrl));
         DismissCommand = new RelayCommand(() => Error = null);
@@ -83,7 +92,11 @@ public sealed class MicVM : ObservableObject
         {
             try
             {
-                _recorder.Start();
+                var ui = SynchronizationContext.Current;
+                void Show(string t) { if (ui is null) _preview?.Invoke(t); else ui.Post(_ => { if (State == MicState.Recording) _preview?.Invoke(t); }, null); }
+                _session = _streaming?.Start(Show);
+                var live = _session;
+                _recorder.Start(live is null ? null : live.Push);
                 Error = null;
                 _started = DateTimeOffset.Now;
                 Elapsed = "00:00";
@@ -91,6 +104,7 @@ public sealed class MicVM : ObservableObject
             }
             catch (Exception e)
             {
+                _session = null;
                 Error = Errors.Text(e);
                 PermissionHint = true;
             }
@@ -98,9 +112,19 @@ public sealed class MicVM : ObservableObject
         }
         var audio = _recorder.Stop();
         State = MicState.Transcribing;
+        var session = _session;
+        _session = null;
         try
         {
-            var text = (await _transcriber.TranscribeAsync(audio, "voice.wav", "audio/wav", CancellationToken.None)).Trim();
+            string? text = null;
+            if (session is not null)
+            {
+                try { text = await session.FinishAsync(CancellationToken.None); }
+                catch (Exception e) when (e is not OperationCanceledException) { text = null; }
+                _preview?.Invoke(null);
+            }
+            text ??= await _transcriber.TranscribeAsync(audio, "voice.wav", "audio/wav", CancellationToken.None);
+            text = text.Trim();
             if (text.Length > 0) _insert(text);
         }
         catch (Exception e) when (e is not OperationCanceledException) { Error = Errors.Text(e); }

@@ -2,6 +2,7 @@ using System.IO;
 using CasePilot.App.Tests.Fakes;
 using CasePilot.App.ViewModels;
 using CasePilot.Core.Abstractions;
+using CasePilot.Core.AI;
 using CasePilot.Core.Models;
 using static CasePilot.App.Tests.Fakes.Data;
 
@@ -75,7 +76,8 @@ sealed class FakeRecorder : IAudioRecorder
 {
     public bool IsRecording { get; private set; }
     public Exception? StartError { get; set; }
-    public void Start() { if (StartError is not null) throw StartError; IsRecording = true; }
+    public Action<byte[]>? OnChunk { get; private set; }
+    public void Start(Action<byte[]>? onChunk = null) { if (StartError is not null) throw StartError; OnChunk = onChunk; IsRecording = true; }
     public byte[] Stop() { IsRecording = false; return [1, 2, 3]; }
 }
 
@@ -91,9 +93,54 @@ sealed class FakeTranscriber : ITranscriber
     }
 }
 
+sealed class FakeStreaming : IStreamingTranscriber
+{
+    public Exception? Error { get; set; }
+    public string Result { get; set; } = "流式结果";
+    public List<byte[]> Pushed { get; } = [];
+    public Action<string>? OnText { get; private set; }
+    public IStreamSession Start(Action<string> onText) { OnText = onText; return new S(this); }
+    sealed class S(FakeStreaming f) : IStreamSession
+    {
+        public void Push(byte[] pcm16k) => f.Pushed.Add(pcm16k);
+        public Task<string> FinishAsync(CancellationToken ct) => f.Error is null ? Task.FromResult(f.Result) : Task.FromException<string>(f.Error);
+    }
+}
+
 [TestClass]
 public class MicVMTests
 {
+    [TestMethod]
+    public async Task Streaming_pushes_chunks_previews_and_inserts_final()
+    {
+        var rec = new FakeRecorder(); var tr = new FakeTranscriber(); var st = new FakeStreaming();
+        string? inserted = null; var previews = new List<string?>();
+        var vm = new MicVM(rec, tr, s => inserted = s, null, st, previews.Add);
+        await vm.ToggleAsync();
+        rec.OnChunk!([1, 2]);
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, st.Pushed.Single());
+        st.OnText!("中间");
+        CollectionAssert.Contains(previews, "中间");
+        await vm.ToggleAsync();
+        Assert.AreEqual("流式结果", inserted);
+        Assert.IsNull(tr.Got);
+        Assert.IsNull(previews.Last());
+        Assert.AreEqual(MicState.Idle, vm.State);
+    }
+
+    [TestMethod]
+    public async Task Streaming_failure_falls_back_to_whole_transcription()
+    {
+        var rec = new FakeRecorder(); var tr = new FakeTranscriber(); var st = new FakeStreaming { Error = new Exception("ws 401") };
+        string? inserted = null;
+        var vm = new MicVM(rec, tr, s => inserted = s, null, st, _ => { });
+        await vm.ToggleAsync();
+        await vm.ToggleAsync();
+        Assert.AreEqual("你好", inserted);
+        Assert.AreEqual("voice.wav", tr.Got!.Value.Name);
+        Assert.IsNull(vm.Error);
+    }
+
     [TestMethod]
     public async Task Click_starts_then_stops_transcribes_and_inserts()
     {

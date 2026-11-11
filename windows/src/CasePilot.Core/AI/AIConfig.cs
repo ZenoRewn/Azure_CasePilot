@@ -13,7 +13,7 @@ public static class SttProviderExtensions
     public static string ApiValue(this SttProvider p) => p == SttProvider.AzureSpeech ? "azure-speech" : "azure-openai";
 
     public static string Label(this SttProvider p) =>
-        p == SttProvider.AzureOpenAI ? "Azure OpenAI (gpt-4o-mini-transcribe)" : "Azure Speech (快速转写)";
+        p == SttProvider.AzureOpenAI ? "Azure OpenAI (gpt-live-transcribe 流式)" : "Azure Speech (实时流式 + PSR)";
 
     public static SttProvider? Parse(string? v) => v switch
     {
@@ -30,7 +30,10 @@ public sealed record AIConfig
     public string ChatDeployment { get; init; } = "gpt-6-luna";
     public SttProvider SttProvider { get; init; } = SttProvider.AzureOpenAI;
     public string SttEndpoint { get; init; } = "https://westus3-azureai-service-507154.openai.azure.com";
+    /// <summary>整段转写 (流式失败时兜底).</summary>
     public string SttDeployment { get; init; } = "gpt-4o-mini-transcribe";
+    /// <summary>AOAI Realtime 流式转写部署.</summary>
+    public string SttStreamDeployment { get; init; } = "gpt-live-transcribe";
     public string SttLanguage { get; init; } = "zh-CN";
     /// <summary>设置后 Speech 使用区域端点.</summary>
     public string SpeechRegion { get; init; } = "";
@@ -56,6 +59,7 @@ public sealed record AIConfig
             SttProvider = SttProviderExtensions.Parse(Str("sttProvider", "")) ?? d.SttProvider,
             SttEndpoint = Str("sttEndpoint", d.SttEndpoint),
             SttDeployment = Str("sttDeployment", d.SttDeployment),
+            SttStreamDeployment = Str("sttStreamDeployment", d.SttStreamDeployment),
             SttLanguage = Str("sttLanguage", d.SttLanguage),
             SpeechRegion = Str("speechRegion", d.SpeechRegion),
         };
@@ -68,6 +72,7 @@ public sealed record AIConfig
         ["sttProvider"] = SttProvider.ApiValue(),
         ["sttEndpoint"] = SttEndpoint,
         ["sttDeployment"] = SttDeployment,
+        ["sttStreamDeployment"] = SttStreamDeployment,
         ["sttLanguage"] = SttLanguage,
         ["speechRegion"] = SpeechRegion,
     }.ToJsonString();

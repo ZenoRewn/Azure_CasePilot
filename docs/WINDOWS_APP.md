@@ -9,7 +9,11 @@
 - **新建 Case**: 依次选择 服务 → 问题类型 → 严重性 (C/B/A/A+), 再填写标题与描述, 可预览请求体后提交。
   - 也可从快捷入口、最近使用、订阅资源反查进入。
   - 支持配额表单。
-- **AI 帮写与语音输入**: 由 Azure OpenAI 或 Azure Speech 提供, 通过 winmm 录音 (16 kHz 单声道 WAV)。AI / STT Key 存放在凭据管理器 (`CasePilot/ai/aoai-key`、`CasePilot/ai/stt-key`)。
+- **AI 帮写与语音输入**: 由 Azure OpenAI 或 Azure Speech 提供, 通过 winmm 录音 (16 kHz 单声道)。语音为**流式**: 录音中输入框实时显示识别结果, 停止后替换为最终文本:
+  - Azure OpenAI: Realtime 转写 (`wss://<资源>/openai/v1/realtime?intent=transcription`, 部署 `gpt-live-transcribe`, 16 kHz 重采样为 24 kHz)。
+  - Azure Speech: 实时识别 WebSocket 协议 (无需 SDK) + Post-Stream Refinement (PSR); 先经 `/sts/v1.0/issueToken` 换取 Speech 令牌, 区域取设置或令牌中的 region。
+  - 流式失败 (连接/认证/超时) 时自动退回整段转写 (`gpt-4o-mini-transcribe` / Speech 快速转写)。协议逻辑见 `CasePilot.Core/AI/Streaming.cs`、`StreamingTranscriber.cs`。
+ AI / STT Key 存放在凭据管理器 (`CasePilot/ai/aoai-key`、`CasePilot/ai/stt-key`)。
 - **我的 Case**: 列表、筛选、详情 (含 SLA 与沟通记录)、补充信息、关闭 Case。
 - **联系人设置**与 **MCP 配置**页面。
 - **界面**: WPF 内置 Fluent 主题 (Light) + Mica, 仅浅色。
@@ -77,6 +81,7 @@ CASEPILOT_LIVE=1 CASEPILOT_AI_ENDPOINT=https://<资源>.cognitiveservices.azure.
 CASEPILOT_LIVE=1 CASEPILOT_SPEECH_ENDPOINT=https://<资源>.cognitiveservices.azure.com CASEPILOT_STT_LANG=en-US \
   CASEPILOT_STT_WAV=<16kHz WAV> dotnet test tests/CasePilot.Platform.Tests --filter "FullyQualifiedName~LiveSttTests"
 ```
-2026-11-11 用 eastus2-foundry-service 的 Azure Speech (Entra 身份, 区域留空、Endpoint 填资源域名) 实测转写正确。
+2026-11-11 用 westus3-azureai-service 实测两种流式 (Entra 身份, 中文): AOAI `gpt-live-transcribe` 与 Speech PSR 均返回实时中间结果与正确最终文本 (Core 层在 macOS 上运行)。
+同日用 eastus2-foundry-service 的 Azure Speech (Entra 身份, 区域留空、Endpoint 填资源域名) 实测转写正确。
 `southeastasia-speech` 禁用了 Key 认证 (disableLocalAuth), 只能用 Entra 身份 + 自定义域名 Endpoint。
 在 App 中使用: 设置 → AI 与语音 → 语音提供方 Azure Speech, 区域留空, Endpoint `https://eastus2-foundry-service.cognitiveservices.azure.com`, Key 留空。
