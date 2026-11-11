@@ -13,6 +13,7 @@
 | 路径 | 说明 |
 |---|---|
 | `macos/` | 原生 SwiftUI App (主产品) |
+| `windows/` | 原生 WPF App (.NET 9), 见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md) |
 | `casepilot/` | Python 核心: 认证、Support API、AI、支持计划、MCP |
 | `server.py` + `static/` | Web 版 / 服务器模式 (本地或容器) |
 | `deploy/` | Dockerfile 配套的 Helm Chart 与 AKS 一键脚本 |
@@ -82,9 +83,16 @@ RG=<rg> AKS=<aks> ACR=<acr> SUB=<订阅> AOAI=<AI 资源名> ./deploy/aks.sh
 macOS 双击 `start.command`, Windows 双击 `start.bat`, 浏览器自动打开 http://127.0.0.1:8765 。
 服务端测试: `python3 -m unittest discover -s tests`。
 
+## Windows
+- **原生 App** (`windows/`, WPF .NET 9): 功能对齐 Mac 版。
+  - **下载即用**: 解压 `CasePilot-*-win-x64.zip` (ARM 设备用 `win-arm64`), 双击 `CasePilot.exe`。自包含单文件, 已内置 .NET 运行时, 无需安装任何依赖。未签名, 首次运行若出现 SmartScreen 提示, 点「更多信息 → 仍要运行」。
+  - 构建与发布: `powershell -ExecutionPolicy Bypass -File windows\build.ps1 -Version v1.0.0`, 产物 `windows\dist\CasePilot-v1.0.0-win-{x64,arm64}.zip`。
+  - 详见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md)。
+- **Web 版**: 双击 `start.bat`。脚本依次查找 `py` / `python`, 都找不到时使用 Azure CLI 自带的 Python。启动后浏览器打开 http://127.0.0.1:8765 。
+
 ## 已知限制 / 待办
 - **云环境**: 原生 App 仅支持 Azure Global。
-- **Windows**: 原生 App 仅 macOS; Web 版 `start.bat` **尚未在 Windows 上实测**。
+- **Windows**: 原生 App 未签名 (SmartScreen 首次提示)。
 - **签名公证**: 目前为 ad-hoc 签名, 首次需执行 `xattr`。免除此步需 Apple Developer Program 的 "Developer ID Application" 证书 + `notarytool` 公证。
 - **浏览器登录**: 需人工输入验证码, 尚未完整人工验证。
 - **AI 配额**: 默认部署 TPM 较低 (10K), 并发多时会 429 (已自动退避重试); 生产建议提高配额或换部署。
