@@ -33,20 +33,27 @@ struct MicButton: View {
     /// 开始录音并尝试流式转写; 流式不可用时录音照常, 结束后整段转写
     private func begin() async {
         base = text.isEmpty ? "" : text + " "
-        let live = LiveText()
+        // 录音立即开始; 连接建立前的音频先进入有序队列, 连上后按顺序补发, 避免丢掉开头几个字
+        let (chunks, sink) = AsyncStream<Data>.makeStream()
         do {
-            try await recorder.start { chunk in Task { await live.session?.push(chunk) } }
-        } catch { self.error = error.localizedDescription; return }
-        self.live = live
-        do {
-            live.session = try await store.ai.startStream { t in Task { @MainActor in if self.recorder.recording, !t.isEmpty { self.text = self.base + t } } }
-        } catch { live.session = nil }
+            try await recorder.start { sink.yield($0) }
+        } catch { sink.finish(); self.error = error.localizedDescription; return }
+        let live = LiveText(); self.live = live
+        live.pump = Task {
+            guard let s = try? await store.ai.startStream(onUpdate: { t in
+                Task { @MainActor in if self.recorder.recording, !t.isEmpty { self.text = self.base + t } }
+            }) else { for await _ in chunks {}; return nil }
+            for await c in chunks { await s.push(c) }
+            return s
+        }
+        live.sink = sink
     }
 
     private func finish() async {
         let pcm = recorder.stop()
         busy = true; defer { busy = false; live = nil }
-        if let s = live?.session, !(await s.failed) {
+        live?.sink?.finish()   // 结束音频流, 等队列全部推送完
+        if let s = await live?.pump?.value, !(await s.failed) {
             let t = await s.finish()
             if !t.isEmpty { text = base + t; return }
         }
@@ -57,8 +64,11 @@ struct MicButton: View {
     }
 }
 
-/// 录音回调线程与界面共享的流式会话引用
-final class LiveText: @unchecked Sendable { var session: RealtimeSession? }
+/// 录音音频队列与推送任务
+final class LiveText: @unchecked Sendable {
+    var sink: AsyncStream<Data>.Continuation?
+    var pump: Task<RealtimeSession?, Never>?
+}
 
 /// 新建页顶部: 一句话描述 → AI 草稿 → (可选) 追问一轮
 struct AIComposer: View {

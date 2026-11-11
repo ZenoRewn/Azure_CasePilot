@@ -94,8 +94,8 @@ RG=<rg> AKS=<aks> ACR=<acr> SUB=<订阅 ID> AOAI=<AI 资源名> AOAI_RG=<ai-rg> 
 
 | 组件 | 命令 |
 |---|---|
-| macOS (`macos/`, SwiftUI) | `swift test`; 打包 `./build_app.sh v2.6.0` |
-| Windows (`windows/`, WPF .NET 9) | `windows\build.ps1 -Version v2.6.0` (含测试与 x64/arm64 打包), 详见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md) |
+| macOS (`macos/`, SwiftUI) | `swift test`; 打包 `./build_app.sh v2.6.1` |
+| Windows (`windows/`, WPF .NET 9) | `windows\build.ps1 -Version v2.6.1` (含测试与 x64/arm64 打包), 详见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md) |
 | Python 核心 / Web (`casepilot/`, `server.py`, `static/`) | `python3 -m unittest discover -s tests`; 本地运行 `./start.sh` / `start.command` / `start.bat` |
 
 | 路径 | 说明 |

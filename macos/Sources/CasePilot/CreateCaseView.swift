@@ -5,6 +5,7 @@ struct CreateCaseView: View {
     var onCreated: () -> Void
 
     @State private var showMore = false
+    @State private var showMissing = false
     @State private var draft = NewCase()
     @State private var serviceQuery = ""
     @State private var showServicePicker = false
@@ -138,14 +139,29 @@ struct CreateCaseView: View {
         .frame(maxWidth: 720)
         .frame(maxWidth: .infinity)
         .navigationTitle("新建 Case")
-        .navigationSubtitle(missing.isEmpty ? "可以提交" : "还需: " + missing.joined(separator: "、"))
+
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("预览请求体", systemImage: "curlybraces") { preview = previewJSON }.help("预览请求体")
+                // 状态图标: 缺信息为红色感叹号, 悬停或点击查看缺少的项; 可提交为蓝色对勾
+                Button { showMissing.toggle() } label: {
+                    Image(systemName: missing.isEmpty ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundStyle(missing.isEmpty ? Color.accentColor : .red)
+                }
+                .help(missing.isEmpty ? "信息已完整, 可以提交" : "还需填写: " + missing.joined(separator: "、"))
+                .popover(isPresented: $showMissing, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if missing.isEmpty { Label("信息已完整, 可以提交", systemImage: "checkmark.circle.fill").foregroundStyle(.tint) }
+                        else {
+                            Text("还需填写").font(.headline)
+                            ForEach(missing, id: \.self) { Label($0, systemImage: "circle").foregroundStyle(.red) }
+                        }
+                    }.padding(12)
+                }
                 Button { confirm = true } label: {
                     if submitting { ProgressView().controlSize(.small) } else { Label("提交 Case", systemImage: "paperplane.fill").labelStyle(.titleAndIcon) }
                 }
-                .buttonStyle(.borderedProminent)
+                .prominentSubmit()
                 .disabled(!missing.isEmpty || submitting)
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("创建 Support Case (⌘↩)")

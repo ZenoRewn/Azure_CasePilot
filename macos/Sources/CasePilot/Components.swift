@@ -127,3 +127,14 @@ struct PrimaryCreateButton: View {
         .help("新建 Support Case (⌘N)")
     }
 }
+
+extension View {
+    /// 可提交时为蓝色强调按钮, 禁用时系统自动变灰; macOS 26 工具栏中 borderedProminent 会被渲染为普通玻璃按钮, 需用 glassProminent
+    @ViewBuilder func prominentSubmit() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glassProminent).tint(.accentColor)
+        } else {
+            self.buttonStyle(.borderedProminent).tint(.accentColor)
+        }
+    }
+}
