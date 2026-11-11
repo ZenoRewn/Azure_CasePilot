@@ -125,6 +125,7 @@ actor RealtimeSession {
     private let task: URLSessionWebSocketTask
     private var t = Transcript()
     private var ended = false
+    private var received = false
     private let onUpdate: @Sendable (String) -> Void
 
     init(proto: RealtimeProtocol, headers: [String: String], onUpdate: @escaping @Sendable (String) -> Void) {
@@ -151,6 +152,7 @@ actor RealtimeSession {
         while !ended {
             do {
                 guard case .string(let s) = try await task.receive() else { continue }
+                received = true
                 proto.handle(s, &t)
                 onUpdate(t.text)
                 if t.done || t.error != nil { ended = true }
@@ -162,6 +164,14 @@ actor RealtimeSession {
     }
 
     var failed: Bool { t.error != nil }
+
+    /// 测试连接: AOAI 等到首条服务端消息; Speech 连接后不主动回消息, 握手 1.5 秒内未失败即视为成功
+    func probe(waitForMessage: Bool) async throws {
+        for _ in 0..<(waitForMessage ? 80 : 15) where t.error == nil && !received { try await Task.sleep(for: .milliseconds(100)) }
+        task.cancel(with: .normalClosure, reason: nil); ended = true
+        if let e = t.error { throw AppError(message: e) }
+        if waitForMessage && !received { throw AppError(message: "实时转写无响应, 请检查流式部署名") }
+    }
 
     func push(_ pcm: Data) async {
         guard !ended, !pcm.isEmpty else { return }
@@ -183,7 +193,7 @@ extension AIClient {
     /// Speech STS 令牌: 有 Speech Key 时走区域端点, 否则用 Entra 令牌在资源端点上换取
     func speechToken(_ c: AIConfig) async throws -> String {
         var req: URLRequest
-        if let key = SecretStore.get(.stt), !key.isEmpty {
+        if let key = c.key(.stt, stored: SecretStore.get(.stt)) {
             guard !c.speechRegion.isEmpty else { throw AppError(message: "使用 Speech Key 时请在 设置 → AI 与语音 中填写区域") }
             req = URLRequest(url: URL(string: "https://\(c.speechRegion).api.cognitive.microsoft.com/sts/v1.0/issueToken")!)
             req.setValue(key, forHTTPHeaderField: "Ocp-Apim-Subscription-Key")
@@ -198,6 +208,11 @@ extension AIClient {
             throw AppError(message: "Speech 令牌获取失败 \((resp as? HTTPURLResponse)?.statusCode ?? 0), 请检查 Endpoint / 区域 / Key 与角色")
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    func testStream() async throws {
+        let s = try await startStream { _ in }
+        try await s.probe(waitForMessage: config.sttProvider == .azureOpenAI)
     }
 
     func startStream(onUpdate: @escaping @Sendable (String) -> Void) async throws -> RealtimeSession {

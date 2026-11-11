@@ -8,6 +8,11 @@ enum STTProvider: String, Codable, CaseIterable, Identifiable {
     var label: String { self == .azureOpenAI ? "Azure OpenAI (gpt-live-transcribe 流式)" : "Azure Speech (实时流式 + PSR)" }
 }
 
+enum AIAuth: String, Codable, CaseIterable, Identifiable {
+    case entra, key
+    var id: String { rawValue }
+}
+
 struct AIConfig: Codable, Equatable {
     var chatEndpoint = "https://westus3-azureai-service-507154.openai.azure.com"
     var chatDeployment = "gpt-6-luna"
@@ -17,6 +22,16 @@ struct AIConfig: Codable, Equatable {
     var sttStreamDeployment = "gpt-live-transcribe"    // 流式转写
     var sttLanguage = "zh-CN"
     var speechRegion = ""      // 设置后 Speech 使用区域端点
+    /// 认证方式; nil 表示旧版设置, 由 migrated() 按钥匙串中是否有 Key 推断
+    var chatAuthSaved: AIAuth?
+    var sttAuthSaved: AIAuth?
+    var chatAuth: AIAuth { get { chatAuthSaved ?? .entra } set { chatAuthSaved = newValue } }
+    var sttAuth: AIAuth { get { sttAuthSaved ?? .entra } set { sttAuthSaved = newValue } }
+
+    enum CodingKeys: String, CodingKey {
+        case chatEndpoint, chatDeployment, sttProvider, sttEndpoint, sttDeployment, sttStreamDeployment, sttLanguage, speechRegion
+        case chatAuthSaved = "chatAuth", sttAuthSaved = "sttAuth"
+    }
 
     enum Kind { case chat, stt }
 
@@ -31,11 +46,27 @@ struct AIConfig: Codable, Equatable {
         sttStreamDeployment = try c.decodeIfPresent(String.self, forKey: .sttStreamDeployment) ?? z.sttStreamDeployment
         sttLanguage = try c.decodeIfPresent(String.self, forKey: .sttLanguage) ?? z.sttLanguage
         speechRegion = try c.decodeIfPresent(String.self, forKey: .speechRegion) ?? ""
+        chatAuthSaved = try c.decodeIfPresent(AIAuth.self, forKey: .chatAuthSaved)
+        sttAuthSaved = try c.decodeIfPresent(AIAuth.self, forKey: .sttAuthSaved)
+    }
+
+    /// 旧版没有认证方式字段: 钥匙串里已有 Key 则视为 Key 认证, 保持升级前行为
+    func migrated(hasChatKey: Bool, hasSttKey: Bool) -> AIConfig {
+        var c = self
+        if c.chatAuthSaved == nil { c.chatAuthSaved = hasChatKey ? .key : .entra }
+        if c.sttAuthSaved == nil { c.sttAuthSaved = hasSttKey ? .key : .entra }
+        return c
+    }
+
+    /// 选择 Key 认证且 Key 非空时返回 Key; 登录身份时忽略已存的 Key (不删除, 切回可恢复)
+    func key(_ kind: Kind, stored: String?) -> String? {
+        guard (kind == .chat ? chatAuth : sttAuth) == .key, let stored, !stored.isEmpty else { return nil }
+        return stored
     }
 
     /// key 为空 → 使用 Entra 令牌
-    func authHeader(_ kind: Kind, key: String?) -> [String: String] {
-        guard let key, !key.isEmpty else { return [:] }
+    func authHeader(_ kind: Kind, key stored: String?) -> [String: String] {
+        guard let key = key(kind, stored: stored) else { return [:] }
         return kind == .stt && sttProvider == .azureSpeech ? ["Ocp-Apim-Subscription-Key": key] : ["api-key": key]
     }
 
@@ -48,7 +79,8 @@ struct AIConfig: Codable, Equatable {
     }
 
     static func load() -> AIConfig {
-        UserDefaults.standard.data(forKey: "aiConfig").flatMap { try? JSONDecoder().decode(AIConfig.self, from: $0) } ?? AIConfig()
+        (UserDefaults.standard.data(forKey: "aiConfig").flatMap { try? JSONDecoder().decode(AIConfig.self, from: $0) } ?? AIConfig())
+            .migrated(hasChatKey: !(SecretStore.get(.aoai) ?? "").isEmpty, hasSttKey: !(SecretStore.get(.stt) ?? "").isEmpty)
     }
     func save() { UserDefaults.standard.set(try? JSONEncoder().encode(self), forKey: "aiConfig") }
     var trimmed: AIConfig {

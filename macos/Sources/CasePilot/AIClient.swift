@@ -54,6 +54,14 @@ struct AIClient {
         return (try? JSONSerialization.jsonObject(with: Data(content.utf8))) as? [String: Any] ?? [:]
     }
 
+    /// 设置页「测试连接」: 对话发一次极小请求
+    func testChat() async throws {
+        let c = config
+        let body: [String: Any] = ["model": c.chatDeployment, "messages": [["role": "user", "content": "ping"]], "max_completion_tokens": 16]
+        _ = try await post("\(c.chatEndpoint)/openai/v1/chat/completions", body: try JSONSerialization.data(withJSONObject: body),
+                           contentType: "application/json", kind: .chat)
+    }
+
     func transcribe(_ audio: Data, filename: String = "voice.m4a", mime: String = "audio/m4a") async throws -> String {
         let c = config
         let boundary = "cp" + UUID().uuidString

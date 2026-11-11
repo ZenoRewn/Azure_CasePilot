@@ -17,7 +17,7 @@ struct CasePilotApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandMenu("Case") {
-                Button("新建 Case") { NotificationCenter.default.post(name: .showCreate, object: nil) }.keyboardShortcut("n")
+                Button("新建 Case") { NotificationCenter.default.post(name: .showCreate, object: nil) }
                 Button("刷新") { Task { await store.loadTickets() } }.keyboardShortcut("r")
             }
         }
@@ -83,6 +83,7 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            PrimaryCreateButton { section = .create }.padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 4)
             List(selection: Binding(get: { section }, set: { if let s = $0 { section = s } })) {
                 Section("工作台") {
                     Label("新建 Case", systemImage: "plus.bubble").tag(AppSection.create)

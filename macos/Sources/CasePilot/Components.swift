@@ -99,3 +99,31 @@ extension View {
 /// 打开设置并跳到指定页
 enum SettingsTab: String { case contact, ai, mcp }
 extension Notification.Name { static let selectSettingsTab = Notification.Name("selectSettingsTab") }
+
+/// 支持计划徽章: 已知为蓝色, 未知为灰色, 所选严重性不被支持时为橙色; 悬停显示来源
+struct PlanBadge: View {
+    let plan: SupportPlan
+    var warn = false
+    var body: some View {
+        if let name = plan.name {
+            Badge(text: name, tint: warn ? .orange : .accentColor, dot: true)
+                .help(warn ? "当前支持计划可能不支持所选严重性 · \(plan.sourceLabel)" : plan.sourceLabel)
+        } else {
+            Badge(text: "未知", tint: .secondary)
+                .help("Azure 无公开查询 API: 根据该订阅最近的 Case 或订阅类型推断。租户级或没有历史 Case 时无法识别。")
+        }
+    }
+}
+
+/// 侧边栏顶部的主操作: 醒目的「新建 Case」
+struct PrimaryCreateButton: View {
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label("新建 Case", systemImage: "plus").font(.body.weight(.semibold)).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent).controlSize(.large)
+        .keyboardShortcut("n")
+        .help("新建 Support Case (⌘N)")
+    }
+}

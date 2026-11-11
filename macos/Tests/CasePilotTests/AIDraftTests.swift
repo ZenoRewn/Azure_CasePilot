@@ -61,7 +61,7 @@ final class AIDraftTests: XCTestCase {
     }
 
     func testRequestRoutingAndKeyHeaders() {
-        var c = AIConfig()
+        var c = AIConfig(); c.chatAuth = .key; c.sttAuth = .key
         XCTAssertTrue(c.authHeader(.chat, key: nil).isEmpty)
         XCTAssertEqual(c.authHeader(.chat, key: "k"), ["api-key": "k"])
         XCTAssertEqual(c.authHeader(.stt, key: "t"), ["api-key": "t"])

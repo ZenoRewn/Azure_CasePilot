@@ -73,3 +73,26 @@ final class RealtimeTests: XCTestCase {
         XCTAssertEqual(c.sttDeployment, "x")
     }
 }
+
+final class AIAuthTests: XCTestCase {
+    func testEntraIgnoresStoredKey() {
+        var c = AIConfig(); c.chatAuth = .entra
+        XCTAssertTrue(c.authHeader(.chat, key: "k").isEmpty)
+        c.chatAuth = .key
+        XCTAssertEqual(c.authHeader(.chat, key: "k"), ["api-key": "k"])
+        c.sttAuth = .key; c.sttProvider = .azureSpeech
+        XCTAssertEqual(c.authHeader(.stt, key: "s"), ["Ocp-Apim-Subscription-Key": "s"])
+        c.sttAuth = .entra
+        XCTAssertNil(c.key(.stt, stored: "s"))
+    }
+
+    func testLegacySettingsInferAuthFromStoredKey() throws {
+        let data = Data(#"{"chatDeployment":"x"}"#.utf8)
+        let c = try JSONDecoder().decode(AIConfig.self, from: data).migrated(hasChatKey: true, hasSttKey: false)
+        XCTAssertEqual(c.chatAuth, .key)
+        XCTAssertEqual(c.sttAuth, .entra)
+        var explicit = AIConfig(); explicit.chatAuth = .entra
+        let d = try JSONDecoder().decode(AIConfig.self, from: try JSONEncoder().encode(explicit)).migrated(hasChatKey: true, hasSttKey: true)
+        XCTAssertEqual(d.chatAuth, .entra)
+    }
+}

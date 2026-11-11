@@ -57,11 +57,14 @@ struct CreateCaseView: View {
                     Text(loadingProblems ? "加载中…" : draft.service == nil ? "先选择服务" : "请选择").tag(ProblemClassification?.none)
                     ForEach(problems) { Text($0.displayName).tag(Optional($0)) }
                 }.disabled(problems.isEmpty)
+                LabeledContent("支持计划") { PlanBadge(plan: store.plan, warn: draft.severity.isHigh && store.plan.allowsCritical == false) }
                 Picker("严重性", selection: $draft.severity) {
                     ForEach(Severity.allCases) { Text("\($0.level) \($0.title)").tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: draft.severity) { _, s in draft.require24x7 = s.isHigh }
+            } header: {
+                Label("问题", systemImage: "tag").foregroundStyle(.tint)
             } footer: {
                 HStack(spacing: 4) {
                     Text(draft.severity.detail)
@@ -93,7 +96,7 @@ struct CreateCaseView: View {
                         }
                     }
             } header: {
-                HStack { Text("描述"); Spacer(); Button("插入模板", action: insertTemplate).buttonStyle(.link).font(.caption) }
+                HStack { Label("描述", systemImage: "text.alignleft").foregroundStyle(.tint); Spacer(); Button("插入模板", action: insertTemplate).buttonStyle(.link).font(.caption) }
             }
 
             Section {
@@ -140,7 +143,7 @@ struct CreateCaseView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("预览请求体", systemImage: "curlybraces") { preview = previewJSON }.help("预览请求体")
                 Button { confirm = true } label: {
-                    if submitting { ProgressView().controlSize(.small) } else { Label("提交", systemImage: "paperplane.fill") }
+                    if submitting { ProgressView().controlSize(.small) } else { Label("提交 Case", systemImage: "paperplane.fill").labelStyle(.titleAndIcon) }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!missing.isEmpty || submitting)

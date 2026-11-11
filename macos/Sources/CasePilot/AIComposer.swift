@@ -140,7 +140,7 @@ struct AISettingsButton: View {
     @Environment(\.openSettings) private var openSettings
     var body: some View {
         let c = AIConfig.load()
-        let auth = SecretStore.get(.aoai) == nil ? "登录身份" : "API Key"
+        let auth = c.chatAuth == .key ? "API Key" : "登录身份"
         Button {
             UserDefaults.standard.set(SettingsTab.ai.rawValue, forKey: "settingsTab")
             NotificationCenter.default.post(name: .selectSettingsTab, object: SettingsTab.ai)

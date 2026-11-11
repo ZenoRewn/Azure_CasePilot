@@ -29,6 +29,7 @@ struct ContactSettingsView: View {
 }
 
 struct AISettingsView: View {
+    @Environment(AppStore.self) private var store
     @State private var c = AIConfig.load()
     @State private var aoaiKey = SecretStore.get(.aoai) ?? ""
     @State private var sttKey = SecretStore.get(.stt) ?? ""
@@ -36,34 +37,92 @@ struct AISettingsView: View {
     var body: some View {
         Form {
             Section {
+                AuthPicker(auth: $c.chatAuth)
                 TextField("Endpoint", text: $c.chatEndpoint, prompt: Text("https://<资源>.openai.azure.com"))
                 TextField("部署名", text: $c.chatDeployment)
-                SecureField("API Key", text: $aoaiKey, prompt: Text("留空则使用当前登录身份 (Entra ID)"))
+                if c.chatAuth == .key { SecureField("API Key", text: $aoaiKey, prompt: Text("仅保存在本机钥匙串")) }
+                ConnectionTest { try await store.ai.testChat() }
             } header: { Text("AI 帮写 · Azure OpenAI / Foundry") } footer: {
-                Text("Key 仅保存在本机钥匙串。使用登录身份时需 Cognitive Services OpenAI User 角色。").foregroundStyle(.secondary)
+                AuthFooter(auth: c.chatAuth, user: store.identity?.user, role: "Cognitive Services OpenAI User")
             }
             Section {
                 Picker("转写服务", selection: $c.sttProvider) { ForEach(STTProvider.allCases) { Text($0.label).tag($0) } }
+                AuthPicker(auth: $c.sttAuth)
                 if c.sttProvider == .azureSpeech {
-                    TextField("Endpoint", text: $c.sttEndpoint, prompt: Text("资源 Endpoint (登录身份认证时使用)"))
-                    TextField("区域", text: $c.speechRegion, prompt: Text("如 westus3; 使用 Speech Key 时必填"))
+                    if c.sttAuth == .entra {
+                        TextField("Endpoint", text: $c.sttEndpoint, prompt: Text("https://<资源>.cognitiveservices.azure.com"))
+                    }
+                    TextField("区域", text: $c.speechRegion, prompt: Text(c.sttAuth == .key ? "必填, 如 westus3" : "可选, 默认从令牌识别"))
                 } else {
                     TextField("Endpoint", text: $c.sttEndpoint)
                     TextField("流式部署名", text: $c.sttStreamDeployment)
                     TextField("整段转写部署名", text: $c.sttDeployment, prompt: Text("流式失败时使用"))
                 }
-                SecureField(c.sttProvider == .azureSpeech ? "Speech Key" : "API Key", text: $sttKey, prompt: Text("留空则使用当前登录身份"))
+                if c.sttAuth == .key {
+                    SecureField(c.sttProvider == .azureSpeech ? "Speech Key" : "API Key", text: $sttKey, prompt: Text("仅保存在本机钥匙串"))
+                }
                 TextField("语言", text: $c.sttLanguage)
-            } header: { Text("语音输入") }
+                ConnectionTest { try await store.ai.testStream() }
+            } header: { Text("语音输入") } footer: {
+                AuthFooter(auth: c.sttAuth, user: store.identity?.user,
+                           role: c.sttProvider == .azureSpeech ? "Cognitive Services User" : "Cognitive Services OpenAI User")
+            }
             Section {
                 Button("恢复默认", role: .destructive) { c = AIConfig(); aoaiKey = ""; sttKey = "" }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 600)
+        .frame(width: 540, height: 680)
         .onChange(of: c) { _, v in v.save() }
         .onChange(of: aoaiKey) { _, v in SecretStore.set(.aoai, v.trimmingCharacters(in: .whitespaces)) }
         .onChange(of: sttKey) { _, v in SecretStore.set(.stt, v.trimmingCharacters(in: .whitespaces)) }
+    }
+}
+
+private struct AuthPicker: View {
+    @Binding var auth: AIAuth
+    var body: some View {
+        Picker("认证方式", selection: $auth) {
+            Text("登录身份 (Entra ID)").tag(AIAuth.entra)
+            Text("API Key").tag(AIAuth.key)
+        }
+        .pickerStyle(.segmented)
+    }
+}
+
+private struct AuthFooter: View {
+    let auth: AIAuth, user: String?, role: String
+    var body: some View {
+        Group {
+            if auth == .entra {
+                Text("以 \(user ?? "当前登录身份") 调用, 无需 Key。需要在资源上具备 \(role) 角色。")
+            } else {
+                Text("Key 仅保存在本机钥匙串。切回登录身份不会删除已保存的 Key。")
+            }
+        }.foregroundStyle(.secondary)
+    }
+}
+
+/// 「测试连接」: 结果就地显示, 401/403 时给出角色或 Key 提示
+private struct ConnectionTest: View {
+    let run: () async throws -> Void
+    @State private var state: (ok: Bool, text: String)?
+    @State private var testing = false
+    var body: some View {
+        HStack {
+            if let s = state {
+                Label(s.text, systemImage: s.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(s.ok ? .green : .orange).font(.callout).lineLimit(3).textSelection(.enabled)
+            }
+            Spacer()
+            Button {
+                Task {
+                    testing = true; defer { testing = false }
+                    do { try await run(); state = (true, "连接成功") } catch { state = (false, error.localizedDescription) }
+                }
+            } label: { if testing { ProgressView().controlSize(.small) } else { Text("测试连接") } }
+            .disabled(testing)
+        }
     }
 }
 
