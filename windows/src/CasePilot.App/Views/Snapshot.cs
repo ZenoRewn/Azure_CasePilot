@@ -236,6 +236,6 @@ internal static class FakeData
     internal sealed class Dialogs : IDialogs { public Task<bool> ConfirmAsync(string t, string m, string p) => Task.FromResult(false); }
     internal sealed class Delay : IDelay { public Task DelayAsync(TimeSpan d, CancellationToken ct) => Task.Delay(Timeout.Infinite, ct); }
     internal sealed class Chat : IChat { public Task<string> ChatAsync(IReadOnlyList<ChatMessage> m, string? s, CancellationToken ct) => Task.FromResult("{}"); }
-    internal sealed class Recorder : IAudioRecorder { public bool IsRecording => false; public void Start() { } public byte[] Stop() => []; }
+    internal sealed class Recorder : IAudioRecorder { public bool IsRecording => false; public void Start(Action<byte[]>? onChunk = null) { } public byte[] Stop() => []; }
     internal sealed class Stt : ITranscriber { public Task<string> TranscribeAsync(byte[] a, string f, string m, CancellationToken ct) => Task.FromResult(""); }
 }

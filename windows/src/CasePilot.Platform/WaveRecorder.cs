@@ -49,16 +49,18 @@ public sealed partial class WaveRecorder : IAudioRecorder, IDisposable
     private readonly MemoryStream _pcm = new();
     private Thread? _thread;
     private volatile bool _stopping;
+    private Action<byte[]>? _onChunk;
     private Exception? _error;
 
     public bool IsRecording => _thread is not null;
 
-    public void Start()
+    public void Start(Action<byte[]>? onChunk = null)
     {
         lock (_gate)
         {
             if (_thread is not null) return;
             _pcm.SetLength(0);
+            _onChunk = onChunk;
             _stopping = false;
             _error = null;
             var ready = new ManualResetEventSlim();
@@ -152,6 +154,7 @@ public sealed partial class WaveRecorder : IAudioRecorder, IDisposable
                 var buf = new byte[n];
                 Marshal.Copy(hdr.lpData, buf, 0, n);
                 _pcm.Write(buf);
+                _onChunk?.Invoke(buf);
             }
             if (!requeue) continue;
             hdr.dwFlags &= ~WHDR_DONE;

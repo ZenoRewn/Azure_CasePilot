@@ -31,7 +31,8 @@ public interface IChat
 public interface IAudioRecorder
 {
     bool IsRecording { get; }
-    void Start();
+    /// <summary>onChunk 在录音线程回调 16 kHz PCM 块 (约 200 ms), 用于流式识别.</summary>
+    void Start(Action<byte[]>? onChunk = null);
     /// <summary>停止录音, 返回 16 kHz 单声道 WAV.</summary>
     byte[] Stop();
 }

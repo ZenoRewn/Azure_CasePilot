@@ -46,6 +46,7 @@ public sealed class AISettingsVM : ObservableObject
     public SttProvider SttProvider { get => _c.SttProvider; set => Update(_c with { SttProvider = value }); }
     public string SttEndpoint { get => _c.SttEndpoint; set => Update(_c with { SttEndpoint = value }); }
     public string SttDeployment { get => _c.SttDeployment; set => Update(_c with { SttDeployment = value }); }
+    public string SttStreamDeployment { get => _c.SttStreamDeployment; set => Update(_c with { SttStreamDeployment = value }); }
     public string SttLanguage { get => _c.SttLanguage; set => Update(_c with { SttLanguage = value }); }
     public string SpeechRegion { get => _c.SpeechRegion; set => Update(_c with { SpeechRegion = value }); }
 
