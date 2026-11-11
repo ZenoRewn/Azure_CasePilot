@@ -21,7 +21,7 @@
 | `docs/` | UI 审计、设计规范、改动记录与截图 |
 
 ## 下载安装 (推荐)
-1. 到 [Releases v2.3.1](https://github.com/ZenoRewn/Azure_CasePilot/releases/tag/v2.3.1) 下载 `CasePilot-*-macOS-universal.zip` (Windows 版见下方 Windows 一节, 在 [最新 Release](https://github.com/ZenoRewn/Azure_CasePilot/releases/latest)) 并解压
+1. 到 [最新 Release](https://github.com/ZenoRewn/Azure_CasePilot/releases/latest) 下载 `CasePilot-*-macOS-universal.zip` 并解压 (Windows: `win-x64` / `win-arm64`, 见下方 Windows 一节; Linux: `linux.tar.gz`, 解压后 `./start.sh`, 需 Python 3.9+, 浏览器打开 http://127.0.0.1:8765)
 2. **首次打开前必须执行一次** (App 未经 Apple 公证, 否则会提示"已损坏"或"无法验证开发者"):
    ```bash
    xattr -dr com.apple.quarantine ~/Downloads/CasePilot.app   # 按实际路径修改
@@ -57,7 +57,7 @@
 ```bash
 cd macos
 swift test                    # 单元测试
-./build_app.sh v2.3.1         # 产物: dist/CasePilot-v2.3.1-macOS-universal.zip
+./build_app.sh v2.4.0         # 产物: dist/CasePilot-v2.4.0-macOS-universal.zip
 ```
 
 ## MCP (Claude Desktop / VS Code / Copilot 等)
