@@ -165,6 +165,7 @@ ROUTES = {
     "ai/stream/start": service.stream_start,
     "ai/stream/push": service.stream_push,
     "ai/stream/stop": service.stream_stop,
+    "ai/test": service.ai_test,
     "ai/config": lambda r: service.ai_config(r).public(),
     "plan": service.support_plan,
     "reply": lambda r: add_communication(r["tenantId"], r.get("subscriptionId"), r.get("name"),

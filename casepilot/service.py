@@ -127,6 +127,18 @@ def stream_stop(r):
         raise core.ApiError(502, str(e).strip("'"))
 
 
+def ai_test(r):
+    """设置页「测试连接」: kind=chat 发极小对话请求; kind=stt 建立流式会话后立即关闭。"""
+    cfg = ai_config(r)
+    if r.get("kind") == "stt":
+        sid = stream_start(r)["id"]
+        realtime.SESSIONS.close(sid)
+        return {"ok": True}
+    body = {"model": cfg.chat_deployment, "messages": [{"role": "user", "content": "ping"}], "max_completion_tokens": 16}
+    _post(cfg, f"{cfg.chat_endpoint}/openai/v1/chat/completions", json.dumps(body).encode(), "application/json")
+    return {"ok": True}
+
+
 def support_plan(r):
     tenant, sub = r.get("tenantId"), r.get("subscriptionId")
     if not sub:

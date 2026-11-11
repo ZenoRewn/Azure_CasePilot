@@ -29,9 +29,17 @@ $("ai-model").onclick = async () => {
   };
   root.append(h("div", { class: "modal-wrap", onclick: (e) => { if (e.target.classList.contains("modal-wrap")) close(); } },
     h("div", { class: "card modal wide" }, h("h3", { class: "t-title-3" }, "AI 设置"),
-      h("div", { class: "body" }, "使用当前登录身份 (Entra ID) 调用, 需要 Cognitive Services OpenAI User 角色。仅保存在本机。"),
+      h("div", { class: "body" }, "认证方式: 登录身份 (Entra ID), 无需 Key。需要 Cognitive Services OpenAI User 角色 (Speech 为 Cognitive Services User)。服务器部署时 Key 只能由管理员通过 K8s Secret 配置。设置仅保存在本机。"),
       h("div", { class: "mt" }, form),
-      h("div", { class: "actions" }, h("button", { class: "btn", onclick: () => { localStorage.removeItem("cp.ai"); close(); showAiModel(); } }, "恢复默认"),
+      h("div", { class: "actions" }, h("span", { id: "ai-test-msg", class: "t-caption secondary", style: "margin-right:auto" }),
+        ...["chat", "stt"].map((k) => h("button", { class: "btn", onclick: async (ev) => {
+          const v = {}; form.querySelectorAll("[data-k]").forEach((i) => { if (i.value.trim()) v[i.dataset.k] = i.value.trim(); });
+          await busy(ev.currentTarget, async () => {
+            try { await api("ai/test", { kind: k, ai: v }); $("ai-test-msg").textContent = (k === "chat" ? "AI 帮写" : "语音") + ": 连接成功 ✓"; }
+            catch (e) { $("ai-test-msg").textContent = (k === "chat" ? "AI 帮写" : "语音") + ": " + errText(e); }
+          });
+        } }, k === "chat" ? "测试 AI" : "测试语音")),
+        h("button", { class: "btn", onclick: () => { localStorage.removeItem("cp.ai"); close(); showAiModel(); } }, "恢复默认"),
         h("button", { class: "btn primary", onclick: save }, "保存")))));
 };
 

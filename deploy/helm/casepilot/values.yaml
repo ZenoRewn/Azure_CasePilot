@@ -1,6 +1,6 @@
 image:
   repository: zenoseaacr.azurecr.io/casepilot
-  tag: "2.0.0"
+  tag: "2.6.0"
 replicas: 2
 # Workload Identity: 托管标识 client id 与租户 (见 deploy/aks.sh)
 workloadIdentity:

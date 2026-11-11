@@ -300,6 +300,9 @@ class Sessions:
             raise RuntimeError(s.st.error)
         return s.push(base64.b64decode(b64) if b64 else b"")
 
+    def close(self, sid):
+        self._get(sid, pop=True).ws.close()
+
     def finish(self, sid):
         s = self._get(sid, pop=True)
         text = s.finish()

@@ -3,7 +3,7 @@
 # 用法: RG=zeno-rg AKS=zeno-sg-aks ACR=zenoseaacr SUB=<订阅> AOAI_RG=zeno-rg AOAI=westus3-azureai-service ./deploy/aks.sh
 set -euo pipefail
 : "${RG:?}" "${AKS:?}" "${ACR:?}" "${SUB:?}"
-NS=${NS:-casepilot}; NAME=${NAME:-casepilot}; TAG=${TAG:-2.0.0}
+NS=${NS:-casepilot}; NAME=${NAME:-casepilot}; TAG=${TAG:-2.6.0}
 cd "$(dirname "$0")/.."
 
 az acr build -r "$ACR" -t "casepilot:$TAG" . --no-logs -o none

@@ -2,103 +2,117 @@
 
 <img src="static/logo.png" width="96" alt="CasePilot logo">
 
-快速创建和管理 Azure Support Case: 原生 Mac App、服务器 / AKS 部署与 MCP。
+一句话描述问题, 快速创建和管理 Azure Support Case。提供 macOS / Windows 原生 App、跨平台 Web 版、MCP 与 AKS 部署。
 
 <p>
   <img src="docs/screenshots/new-case.png" width="49%" alt="新建 Case (AI 帮写)">
   <img src="docs/screenshots/my-cases.png" width="49%" alt="我的 Case 与详情">
 </p>
 
-## 项目结构
-| 路径 | 说明 |
-|---|---|
-| `macos/` | 原生 SwiftUI App (主产品) |
-| `windows/` | 原生 WPF App (.NET 9), 见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md) |
-| `casepilot/` | Python 核心: 认证、Support API、AI、支持计划、MCP |
-| `server.py` + `static/` | Web 版 / 服务器模式 (本地或容器) |
-| `deploy/` | Dockerfile 配套的 Helm Chart 与 AKS 一键脚本 |
-| `tests/` | 服务端单元测试 |
-| `docs/` | UI 审计、设计规范、改动记录与截图 |
+## 快速开始
 
-## 下载安装 (推荐)
-1. 到 [最新 Release](https://github.com/ZenoRewn/Azure_CasePilot/releases/latest) 下载 `CasePilot-*-macOS-universal.zip` 并解压 (Windows: `win-x64` / `win-arm64`, 见下方 Windows 一节; Linux: `linux.tar.gz`, 解压后 `./start.sh`, 需 Python 3.9+, 浏览器打开 http://127.0.0.1:8765)
-2. **首次打开前必须执行一次** (App 未经 Apple 公证, 否则会提示"已损坏"或"无法验证开发者"):
-   ```bash
-   xattr -dr com.apple.quarantine ~/Downloads/CasePilot.app   # 按实际路径修改
-   ```
-3. 双击 `CasePilot.app`
-
-要求 macOS 14+, Universal (Apple Silicon + Intel), 约 1.2MB。关闭窗口或 ⌘Q 即完全退出, 无后台服务。
-
-## 登录
-| 方式 | 前提 | 说明 |
+| 平台 | 下载 ([最新 Release](https://github.com/ZenoRewn/Azure_CasePilot/releases/latest)) | 首次运行 |
 |---|---|---|
-| Azure CLI (默认, 自动尝试) | 已 `az login` | 复用本机 CLI 会话 |
-| 浏览器登录 (设备码) | 无 | 在浏览器输入验证码, 支持 MFA |
-| App Registration | Client ID + Secret | 需在订阅上授予 **Support Request Contributor** 与 **Reader**; Tenant/Client ID 存本机, Secret 存钥匙串, 下次自动填充 |
+| macOS 14+ (Universal) | `CasePilot-*-macOS-universal.zip` | 未经公证, 先执行 `xattr -dr com.apple.quarantine CasePilot.app`, 再双击 |
+| Windows x64 / ARM64 | `CasePilot-*-win-x64.zip` / `win-arm64.zip` | 解压双击 `CasePilot.exe` (自包含); SmartScreen 点「更多信息 → 仍要运行」 |
+| Linux / 其他 (Web 版) | `CasePilot-*-linux.tar.gz` | 解压后 `./start.sh` (Python 3.9+), 浏览器打开 http://127.0.0.1:8765 |
+| 团队共享 (AKS) | 见下方 [一句话部署](#一句话部署到-aks) | — |
 
-点击左下角**身份卡**可随时切换 租户 / 订阅 (含租户级) / 认证方式。
+关闭窗口即完全退出, 无后台服务。
+
+## 登录与权限
+
+| 方式 | 前提 |
+|---|---|
+| Azure CLI (默认, 自动尝试) | 本机已 `az login` |
+| 浏览器登录 (设备码) | 无, 支持 MFA |
+| App Registration | Client ID + Secret (Secret 存钥匙串 / 凭据管理器) |
+
+所需角色: 订阅上 **Support Request Contributor** + **Reader**; 使用 AI 时, AI 资源上 **Cognitive Services OpenAI User** (Speech 为 **Cognitive Services User**)。
+点击左下角**身份卡**随时切换 租户 / 订阅 (含租户级) / 认证方式。
 
 ## 功能
-- **AI 帮写** (v2.0): 一句话描述 (可语音) → AI 选择服务 / 问题类型 / 严重性并写好结构化描述; 信息不足时追问一轮。只从 Azure 真实目录中选择, 不编造。默认 westus3 `gpt-6-luna`, 可在侧边栏「设置 → AI 与语音」或 AI 帮写旁的模型按钮修改 Endpoint / 部署 / **API Key** (Key 存钥匙串; 留空则用登录身份, 需 Cognitive Services OpenAI User 角色)
-- **流式语音输入** (v2.5): 边说边出字, 新建描述 / 补充信息 / 回复均可用。三端 (Mac / Windows / Web·Linux) 一致:
-  - Azure OpenAI Realtime `gpt-live-transcribe` (默认, 需在资源上部署)
-  - Azure Speech 实时识别 + **Post-Stream Refinement (PSR)**: 说话时快速出中间结果, 每句结束替换为二次识别的更准确文本 (可填 **区域 + Speech Key**)
-  - 直接走 WebSocket 协议, 未引入 Speech SDK, 安装包不变大; 流式失败时自动退回整段转写 (`gpt-4o-mini-transcribe` / Speech 快速转写)
-- **支持计划**: 侧边栏显示 (如 Unified / ProDirect / Standard), 来源标注 (最近 Case 或订阅类型推断; Azure 无公开查询 API); 不支持 A/A+ 时提示
-- **新建 Case**: 选服务 → 问题类型 → 严重性 (C/B/A/A+) → 标题与描述 → 提交 (⌘↩)
-  - 快捷入口: 配额申请、计费/订阅、Azure OpenAI、Microsoft Foundry 及最近使用的服务
-  - 「最近使用」: 提交过的 服务 + 问题类型 一键复用
-  - 从订阅资源反查服务; 结构化描述模板; 请求体预览
-  - 「更多选项」: 关联资源、开始时间、24×7、诊断授权
-  - Compute vCPU 配额结构化表单
-- **联系人**: 在 设置 (⌘,) 中维护, 默认 简体中文 / 中国 / China Standard Time
-- **我的 Case**: 统计、搜索、状态与时间筛选; 详情 (属性、SLA、描述、沟通记录); 补充信息; 关闭 Case (回读确认)
-- **支持计划提示**: 根据该订阅最近 Case 推断
 
-## 从源码构建
-```bash
-cd macos
-swift test                    # 单元测试
-./build_app.sh v2.5.0         # 产物: dist/CasePilot-v2.5.0-macOS-universal.zip
-```
+### 新建 Case
+- 侧边栏顶部 **「新建 Case」** 主按钮 (⌘N / Ctrl+N); 提交 ⌘↩ / Ctrl+Enter, 提交前确认
+- **AI 帮写**: 一句话 (可语音) → 自动选服务、问题类型、严重性, 并写好结构化描述 (现象 / 影响 / 时间 / 错误 / 已尝试); 信息不足时追问一轮。只从 Azure 真实目录中选择, 不编造
+- 快捷入口: 配额申请、计费 / 订阅、Azure OpenAI、Microsoft Foundry; 「最近使用」一键复用服务 + 问题类型; 从订阅资源反查服务
+- **支持计划徽章**: 显示当前订阅的支持计划 (如 Unified / ProDirect / Standard); 所选 A / A+ 可能不被支持时变橙色提醒
+  > Azure 没有公开 API 查询支持计划, 按该订阅最近一年的 Case 或订阅类型推断; 租户级或无历史 Case 时显示「未知」
+- 更多选项: 关联资源、开始时间、24×7、诊断授权; Compute vCPU 配额结构化表单; 请求体预览
+
+### 流式语音输入
+边说边出字, 用于新建描述、AI 追问与 Case 回复, 三端一致:
+- **Azure OpenAI Realtime `gpt-live-transcribe`** (默认)
+- **Azure Speech 实时识别 + Post-Stream Refinement (PSR)**: 说话时快速出中间结果, 每句结束替换为二次识别的更准确文本
+- 直接走 WebSocket 协议, 不引入 Speech SDK; 流式失败时自动退回整段转写 (`gpt-4o-mini-transcribe` / Speech 快速转写)
+
+### 我的 Case
+统计、搜索、状态与时间筛选; 详情 (属性、SLA、描述、沟通记录); 补充信息 (可语音); 关闭 Case (回读确认)。
+
+### AI 与语音设置
+侧边栏「设置 → AI 与语音」, 或 AI 帮写旁的模型按钮:
+
+| 项 | 默认 |
+|---|---|
+| 对话 Endpoint / 部署 | westus3 · `gpt-6-luna` |
+| 转写服务 | Azure OpenAI (`gpt-live-transcribe` 流式, `gpt-4o-mini-transcribe` 兜底) 或 Azure Speech |
+| **认证方式** | **登录身份 (Entra ID)** 或 **API Key**, AI 帮写与语音分别选择 |
+
+- 登录身份: 用当前账号调用, 无需 Key, 界面显示所需角色
+- API Key: 存本机钥匙串 / 凭据管理器; 切回登录身份不删除已存 Key。Speech Key 需同时填写区域
+- 每组都有 **「测试连接」**, 失败时提示缺少的角色或检查 Key
+- 原生 App 中旧版本已存 Key 的用户, 升级后自动保持 API Key 方式
+
+### 联系人
+设置 (⌘,) 中维护, 默认 简体中文 / 中国 / China Standard Time。
 
 ## MCP (Claude Desktop / VS Code / Copilot 等)
-工具: `list_services` `list_problem_types` `draft_case` `create_case` `list_cases` `get_case` `add_case_message` `close_case` `get_support_plan`。写操作必须 `confirm=true`。
-- **本机 (stdio, 复用 az login)**:
+工具: `list_services` `list_problem_types` `draft_case` `create_case` `list_cases` `get_case` `add_case_message` `close_case` `get_support_plan`, 写操作需 `confirm=true`。
+- **本机 (stdio, 复用 az login)**, App 内「设置 → MCP」可一键复制:
   ```json
   {"mcpServers": {"casepilot": {"command": "python3", "args": ["-m", "casepilot.mcp"], "cwd": "<仓库路径>",
     "env": {"CASEPILOT_SUBSCRIPTION_ID": "<订阅>"}}}}
   ```
-  App 内 设置 → MCP 可一键复制。
-- **服务器 (HTTP)**: `POST https://<host>/mcp`, `Authorization: Bearer <CASEPILOT_API_KEY>`
+- **服务器 (HTTP)**: `POST https://<host>/mcp`, `Authorization: Bearer <API Key>`
 
-## 服务器 / AKS 部署
-零依赖 Python 容器 (`Dockerfile`) + Helm (`deploy/helm/casepilot`), 使用 **AKS Workload Identity**, 无需任何密钥访问 Azure:
+## 一句话部署到 AKS
+把这句话 (替换尖括号) 发给 Claude Code / Copilot / Codex 等能执行命令的 AI 助手:
+
+> 按 https://github.com/ZenoRewn/Azure_CasePilot/blob/main/docs/AI_DEPLOY.md 的步骤, 把 CasePilot 部署到我的 AKS: 资源组 `<rg>`, 集群 `<aks>`, ACR `<acr>`, 订阅 `<订阅 ID>`, AI 资源 `<AI 资源名>`; 每步执行前先说明, 涉及创建资源或授权时先让我确认。
+
+也可手动执行:
 ```bash
-RG=<rg> AKS=<aks> ACR=<acr> SUB=<订阅> AOAI=<AI 资源名> ./deploy/aks.sh
+RG=<rg> AKS=<aks> ACR=<acr> SUB=<订阅 ID> AOAI=<AI 资源名> AOAI_RG=<ai-rg> ./deploy/aks.sh
 ```
-脚本会: ACR 构建镜像 → 创建托管标识与联邦凭据 → 授予 Support Request Contributor / Reader / Cognitive Services OpenAI User → 生成 API Key → helm 安装。
-服务器模式下 AI/Speech Key 只从环境变量或 K8s Secret 读取 (`CASEPILOT_AOAI_KEY` / `CASEPILOT_STT_KEY` / `CASEPILOT_SPEECH_REGION`, Helm `casepilot.ai.keysSecret`), 不接受浏览器传入; 所有 API 与 /mcp 需 Bearer API Key; 也可置于 Entra 认证网关后 (`trustProxyAuth`)。非 K8s 服务器: `CASEPILOT_MODE=server CASEPILOT_API_KEY=... AZURE_TENANT_ID/CLIENT_ID/CLIENT_SECRET=... python3 server.py`。
+零依赖 Python 容器 + Helm, 使用 **Workload Identity** (集群中不保存 Azure 密钥): ACR 构建 → 托管标识与联邦凭据 → 最小权限角色 → 生成 API Key 存入 Secret → helm 安装。
+- 服务器模式下 AI / Speech Key 只从环境变量或 K8s Secret 读取 (Helm `casepilot.ai.keysSecret`), 不接受浏览器传入
+- 所有 API 与 `/mcp` 需 Bearer API Key; 也可置于 Entra 认证网关后 (`casepilot.trustProxyAuth=true`)
+- 非 K8s 服务器: `CASEPILOT_MODE=server CASEPILOT_API_KEY=... AZURE_TENANT_ID=... AZURE_CLIENT_ID=... AZURE_CLIENT_SECRET=... python3 server.py`
 
-## Web 版 (备选, 跨平台)
-仓库根目录的 `server.py` + `static/` 为早期 Web 版 (仅需 Python 3.9+, 零依赖):
-macOS 双击 `start.command`, Windows 双击 `start.bat`, 浏览器自动打开 http://127.0.0.1:8765 。
-服务端测试: `python3 -m unittest discover -s tests`。
+## 从源码构建与测试
 
-## Windows
-- **原生 App** (`windows/`, WPF .NET 9): 功能对齐 Mac 版。
-  - **下载即用**: 解压 `CasePilot-*-win-x64.zip` (ARM 设备用 `win-arm64`), 双击 `CasePilot.exe`。自包含单文件, 已内置 .NET 运行时, 无需安装任何依赖。未签名, 首次运行若出现 SmartScreen 提示, 点「更多信息 → 仍要运行」。
-  - 构建与发布: `powershell -ExecutionPolicy Bypass -File windows\build.ps1 -Version v1.0.0`, 产物 `windows\dist\CasePilot-v1.0.0-win-{x64,arm64}.zip`。
-  - 详见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md)。
-- **Web 版**: 双击 `start.bat`。脚本依次查找 `py` / `python`, 都找不到时使用 Azure CLI 自带的 Python。启动后浏览器打开 http://127.0.0.1:8765 。
+| 组件 | 命令 |
+|---|---|
+| macOS (`macos/`, SwiftUI) | `swift test`; 打包 `./build_app.sh v2.6.0` |
+| Windows (`windows/`, WPF .NET 9) | `windows\build.ps1 -Version v2.6.0` (含测试与 x64/arm64 打包), 详见 [docs/WINDOWS_APP.md](docs/WINDOWS_APP.md) |
+| Python 核心 / Web (`casepilot/`, `server.py`, `static/`) | `python3 -m unittest discover -s tests`; 本地运行 `./start.sh` / `start.command` / `start.bat` |
 
-## 已知限制 / 待办
-- **云环境**: 原生 App 仅支持 Azure Global。
-- **Windows**: 原生 App 未签名 (SmartScreen 首次提示)。
-- **签名公证**: 目前为 ad-hoc 签名, 首次需执行 `xattr`。免除此步需 Apple Developer Program 的 "Developer ID Application" 证书 + `notarytool` 公证。
-- **浏览器登录**: 需人工输入验证码, 尚未完整人工验证。
-- **AI 配额**: 默认部署 TPM 较低 (10K), 并发多时会 429 (已自动退避重试); 生产建议提高配额或换部署。
+| 路径 | 说明 |
+|---|---|
+| `macos/` | 原生 macOS App |
+| `windows/` | 原生 Windows App |
+| `casepilot/` | Python 核心: 认证、Support API、AI、流式语音、支持计划、MCP |
+| `server.py` + `static/` | Web 版 / 服务器模式 |
+| `deploy/` | Helm Chart 与 AKS 一键脚本 (配合根目录 `Dockerfile`) |
+| `docs/` | 部署指引、Windows 说明、UI 规范与截图 |
+
+## 已知限制
+- 仅支持 Azure Global 云
+- 未签名: macOS 首次需 `xattr`; Windows 首次 SmartScreen 提示
+- 浏览器 (设备码) 登录尚未完整人工验证
+- AI / Speech 的 API Key 方式只有单元测试 (测试资源关闭了 Key 认证), 登录身份方式已实测
+- 默认 AI 部署 TPM 较低, 并发多时会 429 (已自动退避重试), 生产建议提高配额
 
 ## 安全
-凭据仅在本机 (内存 / 钥匙串), App 直接调用 Azure ARM `Microsoft.Support` API (2024-04-01), 不经过任何第三方服务。
+凭据只在本机 (内存 / 钥匙串 / Windows 凭据管理器); 直接调用 Azure ARM `Microsoft.Support` API (2024-04-01) 与 Azure AI, 不经过任何第三方服务。
