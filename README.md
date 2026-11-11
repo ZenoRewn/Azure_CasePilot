@@ -60,7 +60,7 @@
 ```bash
 cd macos
 swift test                    # 单元测试
-./build_app.sh v2.4.0         # 产物: dist/CasePilot-v2.4.0-macOS-universal.zip
+./build_app.sh v2.5.0         # 产物: dist/CasePilot-v2.5.0-macOS-universal.zip
 ```
 
 ## MCP (Claude Desktop / VS Code / Copilot 等)
