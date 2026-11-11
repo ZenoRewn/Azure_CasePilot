@@ -40,6 +40,12 @@ final class BuildBodyTests: XCTestCase {
     }
 }
 
+final class ReplyBodyTests: XCTestCase {
+    func testReplyBodyIsPlainText() {
+        XCTAssertEqual(SupportClient.replyBody("  a <b> & c\r\n第二行 \n"), "a <b> & c\n第二行")
+    }
+}
+
 final class HTMLTextTests: XCTestCase {
     func testStripsTagsAndScripts() {
         let s = HTMLText.plain("<style>x{}</style><p>你好&nbsp;Zheng</p><script>alert(1)</script><br>A &amp; B")

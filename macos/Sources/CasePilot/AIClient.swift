@@ -33,11 +33,23 @@ struct AIClient {
         return j
     }
 
+    /// 非推理模型 (如 gpt-4.1-mini) 会以 400 拒绝 reasoning_effort, 此时去掉后重试一次 (2026-11-11 实测)
+    static func shouldRetryWithoutReasoning(_ error: Error) -> Bool {
+        (error as? AppError)?.message.contains("reasoning_effort") == true
+    }
+
     func chat(_ messages: [[String: String]], schema: [String: Any]) async throws -> [String: Any] {
         let c = config
-        let body: [String: Any] = ["model": c.chatDeployment, "messages": messages, "reasoning_effort": "none",
+        var body: [String: Any] = ["model": c.chatDeployment, "messages": messages, "reasoning_effort": "none",
                                    "response_format": ["type": "json_schema", "json_schema": ["name": "casepilot", "strict": true, "schema": schema]]]
-        let j = try await post("\(c.chatEndpoint)/openai/v1/chat/completions", body: try JSONSerialization.data(withJSONObject: body), contentType: "application/json", kind: .chat)
+        let url = "\(c.chatEndpoint)/openai/v1/chat/completions"
+        let j: [String: Any]
+        do {
+            j = try await post(url, body: try JSONSerialization.data(withJSONObject: body), contentType: "application/json", kind: .chat)
+        } catch where Self.shouldRetryWithoutReasoning(error) {
+            body.removeValue(forKey: "reasoning_effort")
+            j = try await post(url, body: try JSONSerialization.data(withJSONObject: body), contentType: "application/json", kind: .chat)
+        }
         let content = (((j["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any])?["content"] as? String) ?? "{}"
         return (try? JSONSerialization.jsonObject(with: Data(content.utf8))) as? [String: Any] ?? [:]
     }

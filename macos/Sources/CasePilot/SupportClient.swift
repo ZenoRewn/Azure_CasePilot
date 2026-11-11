@@ -160,9 +160,13 @@ struct SupportClient {
                             }.sorted { ($0.created ?? .distantPast) > ($1.created ?? .distantPast) })
     }
 
+    /// 回复正文为纯文本: Azure 会包 <pre> 并剥离 ; 与 <>, HTML 转义会显示成 "&ltb&gt" (2026-11-11 实测)
+    static func replyBody(_ text: String) -> String {
+        text.replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func reply(_ name: String, text: String, tenant: String, sub: String?, sender: String? = nil) async throws {
-        let html = text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\n", with: "<br>")
+        let html = Self.replyBody(text)
         let cname = "cp-" + UUID().uuidString.lowercased().prefix(12)
         _ = try await request("PUT", "\(Self.base(sub))/supportTickets/\(name)/communications/\(cname)?\(v)", tenant: tenant,
                               body: ["properties": ["subject": "客户补充信息 / Update from customer", "body": html].merging(sender.map { ["sender": $0] } ?? [:]) { a, _ in a }])

@@ -86,3 +86,10 @@ final class AIDraftTests: XCTestCase {
         XCTAssertEqual(SupportPlan.infer(tickets: [], quotaId: "MSDN_2014-09-01").allowsCritical, false)
     }
 }
+
+final class ReasoningFallbackTests: XCTestCase {
+    func testRetriesOnlyForReasoningEffortRejection() {
+        XCTAssertTrue(AIClient.shouldRetryWithoutReasoning(AppError(message: "AI 服务错误 400:  Unrecognized request argument supplied: reasoning_effort")))
+        XCTAssertFalse(AIClient.shouldRetryWithoutReasoning(AppError(message: "AI 服务错误 401: Unauthorized")))
+    }
+}

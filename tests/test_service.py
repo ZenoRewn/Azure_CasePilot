@@ -74,5 +74,20 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(p["tier"], "standard")
 
 
+    def test_chat_retries_without_reasoning_effort_for_non_reasoning_models(self):
+        import io, json, urllib.error
+        bodies = []
+        def fake_open(req, timeout, context):
+            bodies.append(json.loads(req.data))
+            if len(bodies) == 1:
+                raise urllib.error.HTTPError("u", 400, "bad", {}, io.BytesIO(
+                    b'{"error":{"message":"Unrecognized request argument supplied: reasoning_effort"}}'))
+            return io.BytesIO(b'{"choices":[{"message":{"content":"{\\"a\\":1}"}}]}')
+        cfg = service.ai_config({"ai": {"api_key": "k"}})
+        with mock.patch.object(service.urllib.request, "urlopen", fake_open):
+            self.assertEqual(service.chat(cfg, [{"role": "user", "content": "hi"}], {"type": "object"}), {"a": 1})
+        self.assertIn("reasoning_effort", bodies[0])
+        self.assertNotIn("reasoning_effort", bodies[1])
+
 if __name__ == "__main__":
     unittest.main()
