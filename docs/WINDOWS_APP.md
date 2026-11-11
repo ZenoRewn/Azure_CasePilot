@@ -86,3 +86,10 @@ CASEPILOT_LIVE=1 CASEPILOT_SPEECH_ENDPOINT=https://<资源>.cognitiveservices.az
 同日用 eastus2-foundry-service 的 Azure Speech (Entra 身份, 区域留空、Endpoint 填资源域名) 实测转写正确。
 `southeastasia-speech` 禁用了 Key 认证 (disableLocalAuth), 只能用 Entra 身份 + 自定义域名 Endpoint。
 在 App 中使用: 设置 → AI 与语音 → 语音提供方 Azure Speech, 区域留空, Endpoint `https://eastus2-foundry-service.cognitiveservices.azure.com`, Key 留空。
+
+## 中文语音实测 (2026-11-11)
+用 Windows 中文语音 (Huihui) 合成 16kHz WAV, 经 eastus2-foundry-service Azure Speech (zh-CN, Entra) 测试, 整段与流式均逐字正确:
+- "我的虚拟机重启后无法连接" → `我的虚拟机重启后无法连接。`
+- "生产环境的 Linux VM 重启以后 SSH 连不上了" → `生产环境的Linux VM重启以后，SSH连不上。` (中英混说正常)
+
+期望文本可用 `CASEPILOT_STT_EXPECT` 指定, 如 `CASEPILOT_STT_LANG=zh-CN CASEPILOT_STT_EXPECT=虚拟机`。

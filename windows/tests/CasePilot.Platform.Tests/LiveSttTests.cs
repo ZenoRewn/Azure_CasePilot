@@ -32,6 +32,6 @@ public class LiveSttTests
         var ai = new AIClient(http, auth, new SystemDelay(), () => cfg, new KeyStore(key));
         var text = await ai.TranscribeAsync(File.ReadAllBytes(wav), "audio.wav", "audio/wav", default);
         Console.WriteLine($"STT=[{text}]");
-        StringAssert.Contains(text.ToLowerInvariant(), "virtual machine");
+        StringAssert.Contains(text.ToLowerInvariant(), Environment.GetEnvironmentVariable("CASEPILOT_STT_EXPECT") ?? "virtual machine");
     }
 }

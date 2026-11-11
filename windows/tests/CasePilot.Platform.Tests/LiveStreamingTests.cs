@@ -30,6 +30,6 @@ public class LiveStreamingTests
         for (var i = 0; i < pcm.Length; i += 6400) { s.Push(pcm[i..Math.Min(i + 6400, pcm.Length)]); await Task.Delay(100); }
         var text = await s.FinishAsync(default);
         Console.WriteLine($"STREAM=[{text}] partial=[{partial}]");
-        StringAssert.Contains(text.ToLowerInvariant(), "virtual machine");
+        StringAssert.Contains(text.ToLowerInvariant(), Environment.GetEnvironmentVariable("CASEPILOT_STT_EXPECT") ?? "virtual machine");
     }
 }
