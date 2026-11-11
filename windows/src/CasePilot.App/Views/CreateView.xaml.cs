@@ -40,8 +40,12 @@ public partial class CreateView : UserControl
         ResultBar.SecondaryText = vm.ResultOk ? "在门户中打开" : null;
         ResultBar.SecondaryCommand = vm.OpenCreatedCommand;
         ContactCard.SetResourceReference(Border.BorderBrushProperty, _main.Shell.ContactValid ? "CpCardStroke" : "CpCritical");
-        CheckIcon.Text = vm.Missing.Count == 0 ? "" : "";
-        CheckIcon.SetResourceReference(TextBlock.ForegroundProperty, vm.Missing.Count == 0 ? "CpSuccess" : "CpTextSecondary");
+        CheckIcon.Text = vm.Missing.Count == 0 ? "\uE73E" : "\uEA39";
+        // 与 Mac 一致: 缺信息红色感叹号, 可提交蓝色对勾; 悬停显示完整缺失清单
+        var color = vm.Missing.Count == 0 ? "CpAccent" : "CpCritical";
+        CheckIcon.SetResourceReference(TextBlock.ForegroundProperty, color);
+        MissingLabel.SetResourceReference(TextBlock.ForegroundProperty, color);
+        StatusPanel.ToolTip = vm.Missing.Count == 0 ? "信息已完整, 可以提交" : "还需填写:\n" + string.Join("\n", vm.Missing.Select(m => "· " + m));
         if (!vm.UseStart && vm.StartTime is null && StartDate.SelectedDate is not null) StartDate.SelectedDate = null;
     }
 

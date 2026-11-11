@@ -259,9 +259,9 @@
         <!-- 底部操作栏: 固定, 不透明 -->
         <Border Grid.Row="1" Background="{DynamicResource CpCardBg}" BorderBrush="{DynamicResource CpDivider}" BorderThickness="0,1,0,0">
             <Grid MaxWidth="808" Margin="24,0" DataContext="{Binding Create}">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel x:Name="StatusPanel" Orientation="Horizontal" VerticalAlignment="Center" Background="Transparent">
                     <TextBlock x:Name="CheckIcon" Style="{StaticResource Icon}" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding MissingText}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="440"
+                    <TextBlock x:Name="MissingLabel" Text="{Binding MissingText}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="440"
                                AutomationProperties.LiveSetting="Polite" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
